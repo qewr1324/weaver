@@ -3,7 +3,7 @@
 	"type": "module",
 	"displayName": "Weaver",
 	"description": "🛡️ Weaver - a 3D game editor from TS/JS for 💠 VSCode. ",
-	"version": "0.18.0",
+	"version": "0.28.3",
 	"private": false,
 	"publisher": "GhurbeSABZI",
 	"packageManager": "bun@1.3.14",
@@ -70,12 +70,9 @@
 		"views": {
 			"weaver": [
 				{
-					"id": "weaver.outliner",
-					"name": "Outliner"
-				},
-				{
 					"id": "weaver.inspector",
-					"name": "Inspector"
+					"name": "Inspector",
+					"type": "webview"
 				}
 			]
 		},
@@ -83,13 +80,39 @@
 			{
 				"command": "weaver.newScene",
 				"title": "Weaver: New Scene"
+			},
+			{
+				"command": "weaver.undo",
+				"title": "Weaver: Undo"
+			},
+			{
+				"command": "weaver.redo",
+				"title": "Weaver: Redo"
+			},
+			{
+				"command": "weaver.saveScene",
+				"title": "Weaver: Save Scene"
+			}
+		],
+		"keybindings": [
+			{
+				"command": "weaver.undo",
+				"key": "ctrl+z",
+				"mac": "cmd+z",
+				"when": "resourceFilename =~ /\\.weave\\.json$/"
+			},
+			{
+				"command": "weaver.redo",
+				"key": "ctrl+shift+z",
+				"mac": "cmd+shift+z",
+				"when": "resourceFilename =~ /\\.weave\\.json$/"
 			}
 		],
 		"menus": {
 			"view/title": [
 				{
 					"command": "weaver.newScene",
-					"when": "view == weaver.outliner",
+					"when": "view == weaver.inspector",
 					"group": "navigation"
 				}
 			]
