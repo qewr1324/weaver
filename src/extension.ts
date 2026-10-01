@@ -383,12 +383,11 @@ const Serializer = {
 	},
 };
 
-// ─── Scene Factory (helpers) ───────────────────────────────────
+// ─── Scene Factory ─────────────────────────────────────────────
 const SceneFactory = {
 	createDefaultScene(name = "New Scene"): Scene {
 		const scene = new Scene(name);
 
-		// Camera node
 		const cam = new Node("Main Camera");
 		cam.addComponent({
 			id: nextComponentId(),
@@ -401,7 +400,6 @@ const SceneFactory = {
 		cam.transform.position = vec3(0, 2, -8);
 		scene.addNode(cam);
 
-		// Light node
 		const light = new Node("Sun");
 		light.addComponent({
 			id: nextComponentId(),
@@ -413,7 +411,6 @@ const SceneFactory = {
 		light.transform.position = vec3(0, 10, 0);
 		scene.addNode(light);
 
-		// Cube node
 		const cube = new Node("Cube");
 		cube.addComponent({
 			id: nextComponentId(),
@@ -431,11 +428,9 @@ const SceneFactory = {
 // RENDER LAYER
 // ═══════════════════════════════════════════════════════════════
 
-// ─── AssetManager ──────────────────────────────────────────────
 class AssetManager extends Disposable {
 	private assets = new Map<string, unknown>();
 	private log = new Logger("AssetManager");
-
 	register<T>(key: string, asset: T): void {
 		this.assets.set(key, asset);
 	}
@@ -445,7 +440,6 @@ class AssetManager extends Disposable {
 	has(key: string): boolean {
 		return this.assets.has(key);
 	}
-
 	dispose(): void {
 		this.log.debug("disposing assets", this.assets.size);
 		this.assets.clear();
@@ -453,7 +447,6 @@ class AssetManager extends Disposable {
 	}
 }
 
-// ─── RenderLoop ────────────────────────────────────────────────
 class RenderLoop extends Disposable {
 	private handle: number | null = null;
 	private callbacks = new Set<(dt: number) => void>();
@@ -496,18 +489,13 @@ class RenderLoop extends Disposable {
 	}
 }
 
-// ─── Renderer ──────────────────────────────────────────────────
-interface RendererOptions {
-	canvas?: HTMLCanvasElement;
-}
-
 class Renderer extends Disposable {
 	private log = new Logger("Renderer");
 	readonly assets = new AssetManager();
 	readonly loop = new RenderLoop();
 	private scene: Scene | null = null;
 
-	constructor(_opts: RendererOptions = {}) {
+	constructor() {
 		super();
 		this.register(this.assets);
 		this.register(this.loop);
@@ -541,7 +529,6 @@ class Renderer extends Disposable {
 // EDITOR LAYER
 // ═══════════════════════════════════════════════════════════════
 
-// ─── CommandStack ──────────────────────────────────────────────
 interface Command {
 	readonly label: string;
 	execute(): void;
@@ -601,7 +588,6 @@ class CommandStack extends Disposable {
 	}
 }
 
-// ─── Selection ─────────────────────────────────────────────────
 class Selection extends Disposable {
 	private selected = new Set<string>();
 	readonly bus = new EventBus<{ changed: string[] }>();
@@ -643,7 +629,6 @@ class Selection extends Disposable {
 	}
 }
 
-// ─── EditorContext ─────────────────────────────────────────────
 class EditorContext extends Disposable {
 	scene: Scene;
 	readonly commands = new CommandStack();
@@ -765,16 +750,12 @@ export function activate(context: vscode.ExtensionContext): void {
 	const editor = new EditorContext();
 	context.subscriptions.push({ dispose: () => editor.dispose() });
 
-	// ─── Viewport (Custom Editor for *.weave.json) ───────────────
 	context.subscriptions.push(vscode.window.registerCustomEditorProvider("weaver.viewport", new WeaverViewportProvider(context, editor), { webviewOptions: { retainContextWhenHidden: true } }));
 
-	// ─── Inspector (Activity Bar webview) ────────────────────────
 	context.subscriptions.push(vscode.window.registerWebviewViewProvider("weaver.inspector", new InspectorProvider(context, editor)));
 
-	// ─── Commands ────────────────────────────────────────────────
 	context.subscriptions.push(
 		vscode.commands.registerCommand("weaver.newScene", async () => {
-			// 1) Ask for scene name
 			const name = await vscode.window.showInputBox({
 				prompt: "Scene name",
 				placeHolder: "My Awesome Level",
@@ -782,34 +763,25 @@ export function activate(context: vscode.ExtensionContext): void {
 				validateInput: (v) => (v.trim().length === 0 ? "Name cannot be empty" : null),
 			});
 
-			if (name === undefined) return; // user cancelled
+			if (name === undefined) return;
 
 			const safeName = name.trim().replace(/\s+/g, "-").toLowerCase();
-
-			// 2) Build default URI in current workspace folder
 			const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 			const defaultUri = workspaceFolder ? vscode.Uri.joinPath(workspaceFolder.uri, `${safeName}.weave.json`) : vscode.Uri.file(`${safeName}.weave.json`);
 
-			// 3) Ask where to save
 			const uri = await vscode.window.showSaveDialog({
 				filters: { "Weaver Scene": ["weave.json"] },
 				saveLabel: "Create Scene",
 				defaultUri,
 			});
 
-			if (uri === undefined) return; // user cancelled
+			if (uri === undefined) return;
 
-			// 4) Create scene with that name
 			const scene = SceneFactory.createDefaultScene(name.trim());
 			const json = Serializer.serialize(scene);
 
-			// 5) Write file
 			await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(json));
-
-			// 6) Open with Weaver Viewport
 			await vscode.commands.executeCommand("vscode.openWith", uri, "weaver.viewport");
-
-			// 7) Load into editor so Inspector works
 			editor.loadScene(scene);
 		}),
 		vscode.commands.registerCommand("weaver.undo", () => editor.commands.undo()),
@@ -857,13 +829,12 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 			}
 		};
 
-		// Doc → Viewport
 		const changeSub = vscode.workspace.onDidChangeTextDocument((e) => {
 			if (e.document.uri.toString() === document.uri.toString()) update();
 		});
 		panel.onDidDispose(() => changeSub.dispose());
 
-		// Viewport → Doc / Editor
+		let initialSent = false;
 		panel.webview.onDidReceiveMessage(async (msg) => {
 			if (msg.type === "scene:save") {
 				const json = JSON.stringify(msg.payload, null, 2);
@@ -873,11 +844,12 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 			} else if (msg.type === "select") {
 				this.editor.selection.set(msg.ids ?? []);
 			} else if (msg.type === "ready") {
-				update();
+				if (!initialSent) {
+					initialSent = true;
+					update();
+				}
 			}
 		});
-
-		update();
 	}
 
 	private getHtml(webview: vscode.Webview): string {
@@ -893,16 +865,17 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
            connect-src https://cdn.babylonjs.com;
            worker-src blob:;" />
 <style>
-  html,body { width:100%; height:100%; margin:0; padding:0; overflow:hidden; background:#0D1117; }
-  #renderCanvas { width:100%; height:100%; display:block; touch-action:none; outline:none; }
+  html, body { width:100%; height:100%; margin:0; padding:0; overflow:hidden; background:#0D1117; }
+  #renderCanvas { width:100%; height:100%; display:block; outline:none; touch-action:none; }
   #hud {
     position:absolute; top:8px; left:8px; color:#A78BFA;
     font:12px/1.6 monospace; pointer-events:none;
     background:rgba(13,17,23,.6); padding:6px 10px; border-radius:4px;
+    z-index:10;
   }
   #loading {
     position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-    color:#A78BFA; font:14px monospace;
+    color:#A78BFA; font:14px monospace; z-index:5;
   }
 </style>
 </head>
@@ -920,15 +893,20 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 
   let engine, scene, camera;
   let sceneData = null;
-  const nodeIdToMesh = new Map(); // nodeId -> Babylon mesh
-  let currentSceneName = '';
+  const nodeIdToMesh = new Map();
 
   function initBabylon() {
+    console.log('[Weaver] initBabylon called');
     if (typeof BABYLON === 'undefined') {
       loading.textContent = 'Failed to load Babylon (offline?)';
+      console.error('[Weaver] BABYLON is undefined');
       return;
     }
     loading.remove();
+
+    canvas.width = canvas.clientWidth || 800;
+    canvas.height = canvas.clientHeight || 600;
+    console.log('[Weaver] canvas size', canvas.width, canvas.height);
 
     engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
     scene = new BABYLON.Scene(engine);
@@ -946,18 +924,9 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
     camera.wheelDeltaPercentage = 0.02;
     camera.lowerRadiusLimit = 1;
     camera.upperRadiusLimit = 500;
+    camera.target = BABYLON.Vector3.Zero();
+    camera.setPosition(new BABYLON.Vector3(6, 6, -6));
 
-    const grid = new BABYLON.GridMaterial?.('grid', scene);
-    // fallback ground (in case GridMaterial isn't in the CDN bundle)
-    const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 40, height: 40 }, scene);
-    const gmat = new BABYLON.StandardMaterial('gmat', scene);
-    gmat.diffuseColor = new BABYLON.Color3(0.1, 0.1, 0.15);
-    gmat.specularColor = new BABYLON.Color3(0, 0, 0);
-    gmat.alpha = 0.6;
-    ground.material = gmat;
-    ground.isPickable = false;
-
-    // Picking
     scene.onPointerObservable.add((pi) => {
       if (pi.type === BABYLON.PointerEventTypes.POINTERPICK) {
         const picked = pi.pickInfo?.pickedMesh;
@@ -968,19 +937,13 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 
     engine.runRenderLoop(() => scene.render());
     window.addEventListener('resize', () => engine.resize());
-  }
+    setTimeout(() => engine.resize(), 100);
 
-  function disposeNode(nodeData) {
-    const mesh = nodeIdToMesh.get(nodeData.id);
-    if (mesh) {
-      mesh.dispose();
-      nodeIdToMesh.delete(nodeData.id);
-    }
-    for (const child of nodeData.children ?? []) disposeNode(child);
+    console.log('[Weaver] Babylon ready');
+    vscode.postMessage({ type: 'ready' });
   }
 
   function buildNode(nodeData, parentMesh) {
-    // Create a Babylon TransformNode or Mesh depending on components
     const meshComp = (nodeData.components || []).find(c => c.type === 'mesh');
     const lightComp = (nodeData.components || []).find(c => c.type === 'light');
     const camComp = (nodeData.components || []).find(c => c.type === 'camera');
@@ -988,25 +951,13 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
     let node = null;
 
     if (meshComp) {
-      const opts = { size: 1 };
       switch (meshComp.geometry) {
-        case 'box':
-          node = BABYLON.MeshBuilder.CreateBox(nodeData.id, opts, scene);
-          break;
-        case 'sphere':
-          node = BABYLON.MeshBuilder.CreateSphere(nodeData.id, { diameter: 1 }, scene);
-          break;
-        case 'plane':
-          node = BABYLON.MeshBuilder.CreatePlane(nodeData.id, { size: 1 }, scene);
-          break;
-        case 'cylinder':
-          node = BABYLON.MeshBuilder.CreateCylinder(nodeData.id, { height: 1, diameter: 1 }, scene);
-          break;
-        case 'torus':
-          node = BABYLON.MeshBuilder.CreateTorus(nodeData.id, { diameter: 1, thickness: 0.3 }, scene);
-          break;
-        default:
-          node = BABYLON.MeshBuilder.CreateBox(nodeData.id, opts, scene);
+        case 'box': node = BABYLON.MeshBuilder.CreateBox(nodeData.id, { size: 1 }, scene); break;
+        case 'sphere': node = BABYLON.MeshBuilder.CreateSphere(nodeData.id, { diameter: 1 }, scene); break;
+        case 'plane': node = BABYLON.MeshBuilder.CreatePlane(nodeData.id, { size: 1 }, scene); break;
+        case 'cylinder': node = BABYLON.MeshBuilder.CreateCylinder(nodeData.id, { height: 1, diameter: 1 }, scene); break;
+        case 'torus': node = BABYLON.MeshBuilder.CreateTorus(nodeData.id, { diameter: 1, thickness: 0.3 }, scene); break;
+        default: node = BABYLON.MeshBuilder.CreateBox(nodeData.id, { size: 1 }, scene);
       }
       const mat = new BABYLON.StandardMaterial(nodeData.id + '_mat', scene);
       try {
@@ -1030,17 +981,11 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
         l.intensity = lightComp.intensity ?? 1;
       }
       nodeIdToMesh.set(nodeData.id, node);
-    } else if (camComp) {
-      // Main camera is managed by editor; store placeholder
-      node = new BABYLON.TransformNode(nodeData.id, scene);
-      nodeIdToMesh.set(nodeData.id, node);
     } else {
-      // Plain transform node
       node = new BABYLON.TransformNode(nodeData.id, scene);
       nodeIdToMesh.set(nodeData.id, node);
     }
 
-    // Apply transform
     const t = nodeData.transform;
     if (t) {
       node.position.set(t.position.x, t.position.y, t.position.z);
@@ -1051,26 +996,21 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
     }
 
     if (parentMesh && node) node.parent = parentMesh;
-
     for (const child of nodeData.children ?? []) buildNode(child, node);
   }
 
   function rebuildScene(data) {
     if (!scene) return;
-    // Clean old
     for (const [, obj] of nodeIdToMesh) obj.dispose();
     nodeIdToMesh.clear();
-
-    const root = data.root;
-    for (const child of root.children ?? []) buildNode(child, null);
-
-    currentSceneName = data.name;
-    hud.textContent = 'Weaver Viewport — ' + currentSceneName;
+    for (const child of data.root.children ?? []) buildNode(child, null);
+    hud.textContent = 'Weaver Viewport — ' + data.name;
+    console.log('[Weaver] scene rebuilt', data.name);
   }
 
-  // ─── messaging ────────────────────────────────────────────────
   window.addEventListener('message', (e) => {
     const msg = e.data;
+    console.log('[Weaver] message', msg.type);
     if (msg.type === 'scene:update') {
       sceneData = msg.payload;
       if (scene) rebuildScene(sceneData);
@@ -1078,16 +1018,7 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
     }
   });
 
-  // Wait for Babylon script to load
-  if (typeof BABYLON === 'undefined') {
-    window.addEventListener('load', () => {
-      initBabylon();
-      vscode.postMessage({ type: 'ready' });
-    });
-  } else {
-    initBabylon();
-    vscode.postMessage({ type: 'ready' });
-  }
+  window.addEventListener('load', initBabylon);
 </script>
 </body>
 </html>`;
@@ -1108,7 +1039,6 @@ class InspectorProvider implements vscode.WebviewViewProvider {
 		view.webview.options = { enableScripts: true };
 		view.webview.html = this.getHtml();
 
-		// Editor → Inspector
 		this.editor.selection.bus.on("changed", (ids) => {
 			const id = ids[0];
 			const node = id ? this.editor.scene.findNode(id) : null;
@@ -1126,7 +1056,6 @@ class InspectorProvider implements vscode.WebviewViewProvider {
 			});
 		});
 
-		// Inspector → Editor
 		view.webview.onDidReceiveMessage((msg) => {
 			if (msg.type === "update:transform") {
 				const node = this.editor.scene.findNode(msg.nodeId);
