@@ -9,6 +9,10 @@
            connect-src https://cdn.babylonjs.com;
            worker-src blob:;" />
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     html,
     body {
       width: 100%;
@@ -17,6 +21,156 @@
       padding: 0;
       overflow: hidden;
       background: #1a1f2e;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    #viewport {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ═══════════ TOOLBAR ═══════════ */
+    #toolbar {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      background: #0D1117;
+      border-bottom: 1px solid #21262D;
+      z-index: 20;
+      user-select: none;
+      overflow-x: auto;
+      overflow-y: hidden;
+      white-space: nowrap;
+    }
+
+    #toolbar::-webkit-scrollbar {
+      height: 4px;
+    }
+
+    #toolbar::-webkit-scrollbar-thumb {
+      background: #30363D;
+      border-radius: 2px;
+    }
+
+    .tb-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 0 4px;
+      border-right: 1px solid #21262D;
+    }
+
+    .tb-group:last-child {
+      border-right: none;
+    }
+
+    .tb-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      min-width: 28px;
+      height: 26px;
+      padding: 0 6px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: #8B949E;
+      font: 12px/1 ui-monospace, monospace;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all .12s;
+    }
+
+    .tb-btn:hover {
+      background: #161B22;
+      color: #C9D1D9;
+    }
+
+    .tb-btn.active {
+      background: #6B46C1;
+      color: #FFFFFF;
+      border-color: #A78BFA;
+      box-shadow: 0 0 0 1px #A78BFA55 inset;
+    }
+
+    .tb-btn .icon {
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    .tb-btn .label {
+      font-size: 11px;
+    }
+
+    .tb-sep {
+      width: 1px;
+      height: 18px;
+      background: #21262D;
+      margin: 0 2px;
+    }
+
+    .tb-label {
+      color: #6E7681;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 0 4px;
+    }
+
+    /* dropdown for add object */
+    .tb-dd-wrap {
+      position: relative;
+    }
+
+    .tb-dd-menu {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      margin-top: 4px;
+      background: #161B22;
+      border: 1px solid #30363D;
+      border-radius: 4px;
+      padding: 4px;
+      min-width: 140px;
+      display: none;
+      z-index: 100;
+      box-shadow: 0 4px 12px #0008;
+    }
+
+    .tb-dd-wrap.open .tb-dd-menu {
+      display: block;
+    }
+
+    .tb-dd-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      color: #C9D1D9;
+      font-size: 12px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    .tb-dd-item:hover {
+      background: #6B46C1;
+    }
+
+    .tb-dd-item .icon {
+      font-size: 14px;
+      width: 16px;
+      text-align: center;
+    }
+
+    /* ═══════════ CANVAS AREA ═══════════ */
+    #canvas-wrap {
+      position: relative;
+      flex: 1 1 auto;
+      min-height: 0;
     }
 
     #renderCanvas {
@@ -27,6 +181,7 @@
       touch-action: none;
     }
 
+    /* ═══════════ OVERLAYS ═══════════ */
     #hud {
       position: absolute;
       top: 8px;
@@ -76,6 +231,7 @@
       border-radius: 4px;
       z-index: 10;
       transition: color .15s;
+      white-space: nowrap;
     }
 
     #status.off {
@@ -97,53 +253,166 @@
 </head>
 
 <body>
-  <div id="hud">
-    <b>Weaver Viewport</b><br />
-    <span class="k">➡️⬅️⬇️⬆️</span> look &nbsp; <span class="k">WASD</span> move &nbsp; <span class="k">Q/E</span>
-    down/up<br />
-    <span class="k">Shift</span> fast &nbsp; <span class="k">Space</span> slow &nbsp; <span class="k">Wheel</span>
-    speed<br />
-    <span class="k">LMB</span> select &nbsp; <span class="k">Esc</span> deselect
+  <div id="viewport">
+    <!-- ═══════════ TOOLBAR ═══════════ -->
+    <div id="toolbar">
+      <!-- Add Object dropdown -->
+      <div class="tb-group">
+        <div class="tb-dd-wrap" id="addObjWrap">
+          <button class="tb-btn" id="addObjBtn" title="Add Object">
+            <span class="icon">＋</span>
+            <span class="label">Add</span>
+          </button>
+          <div class="tb-dd-menu" id="addObjMenu"></div>
+        </div>
+      </div>
+
+      <!-- Transform modes -->
+      <div class="tb-group" id="transformGroup">
+        <span class="tb-label">Gizmo</span>
+      </div>
+
+      <!-- Reference space -->
+      <div class="tb-group" id="refGroup">
+        <span class="tb-label">Space</span>
+      </div>
+
+      <!-- Shader -->
+      <div class="tb-group" id="shaderGroup">
+        <span class="tb-label">View</span>
+      </div>
+
+      <!-- Snap -->
+      <div class="tb-group" id="snapGroup">
+        <span class="tb-label">Snap</span>
+      </div>
+    </div>
+
+    <!-- ═══════════ CANVAS ═══════════ -->
+    <div id="canvas-wrap">
+      <div id="hud">
+        <b>Weaver Viewport</b><br />
+        <span class="k">➡️⬅️⬇️⬆️</span> look &nbsp; <span class="k">WASD</span> move &nbsp; <span class="k">Q/E</span>
+        down/up<br />
+        <span class="k">Shift</span> fast &nbsp; <span class="k">Space</span> slow &nbsp; <span class="k">Wheel</span>
+        speed<br />
+        <span class="k">LMB</span> select &nbsp; <span class="k">Esc</span> deselect
+      </div>
+      <div id="fps">-- FPS</div>
+      <div id="status" class="off">● ➡️⬅️⬇️⬆️ to look · WASD to move</div>
+      <div id="loading">Loading Babylon…</div>
+      <canvas id="renderCanvas" tabindex="0"></canvas>
+    </div>
   </div>
-  <div id="fps">-- FPS</div>
-  <div id="status" class="off">● ➡️⬅️⬇️⬆️ to look · WASD to move</div>
-  <div id="loading">Loading Babylon…</div>
-  <canvas id="renderCanvas" tabindex="0"></canvas>
 
   <script nonce="{{nonce}}" src="https://cdn.babylonjs.com/babylon.js"></script>
   <script nonce="{{nonce}}">
     const vscode = acquireVsCodeApi();
+
+    // ═══════════ DOM ═══════════
     const canvas = document.getElementById('renderCanvas');
     const hud = document.getElementById('hud');
     const fpsEl = document.getElementById('fps');
     const statusEl = document.getElementById('status');
     const loading = document.getElementById('loading');
+    const toolbar = document.getElementById('toolbar');
+    const addObjWrap = document.getElementById('addObjWrap');
+    const addObjBtn = document.getElementById('addObjBtn');
+    const addObjMenu = document.getElementById('addObjMenu');
+    const transformGroup = document.getElementById('transformGroup');
+    const refGroup = document.getElementById('refGroup');
+    const shaderGroup = document.getElementById('shaderGroup');
+    const snapGroup = document.getElementById('snapGroup');
 
-    let engine, scene, camera, highlightLayer;
+    // ═══════════ STATE ═══════════
+    let engine, scene, camera, highlightLayer, gizmoManager;
     const nodeIdToMesh = new Map();
     const meshToNodeId = new WeakMap();
     let selectedIds = [];
+    let hoveredMesh = null;
 
-    // ═══════════ CAMERA STATE ═══════════
+    let config = null;              // از extension میاد
+
+    // تنظیمات جاری editor
+    const editor = {
+      transformMode: 'move',        // move | rotate | scale
+      referenceMode: 'world',       // world | object
+      shaderMode: 'solid',          // solid | wireframe | both
+      snapGrid: false,
+      snapGridSize: 0.5,
+      snapObject: false,
+    };
+
     const camState = {
       yaw: -Math.PI / 4,
       pitch: -Math.PI / 8,
-      baseSpeed: 0.35,       // واحد بر ثانیه
-      baseLookSpeed: 1.8,    // رادیان بر ثانیه
+      baseSpeed: 0.35,
+      baseLookSpeed: 1.8,
       sprintMult: 4,
       slowMult: 0.25,
     };
 
-    // ═══════════ INPUT STATE ═══════════
     const keys = new Set();
     let shiftHeld = false;
     let spaceHeld = false;
+
+    let HOVER_COLOR = new BABYLON.Color3(0.4, 0.75, 1.0);
+    let SELECT_COLOR = new BABYLON.Color3(1.0, 0.6, 0.15);
 
     function log(...a) { console.log('[Weaver]', ...a); }
 
     function setStatus(text, active) {
       statusEl.textContent = text;
       statusEl.classList.toggle('off', !active);
+    }
+
+    // ═══════════ MESSAGE: config میاد ═══════════
+    window.addEventListener('message', (e) => {
+      const msg = e.data;
+      if (msg.type === 'config') {
+        config = msg.payload;
+        applyConfig();
+        buildToolbar();
+      } else if (msg.type === 'scene:update') {
+        if (scene) rebuildScene(msg.payload);
+      } else if (msg.type === 'selection:update') {
+        applySelection(msg.ids || []);
+      }
+    });
+
+    function applyConfig() {
+      if (!config) return;
+
+      // رنگ‌ها
+      if (config.highlights?.hover) {
+        HOVER_COLOR = new BABYLON.Color3(
+          config.highlights.hover.r,
+          config.highlights.hover.g,
+          config.highlights.hover.b
+        );
+      }
+      if (config.highlights?.selected) {
+        SELECT_COLOR = new BABYLON.Color3(
+          config.highlights.selected.r,
+          config.highlights.selected.g,
+          config.highlights.selected.b
+        );
+      }
+
+      // دوربین
+      if (config.camera) {
+        camState.baseSpeed = config.camera.baseSpeed ?? camState.baseSpeed;
+        camState.baseLookSpeed = config.camera.baseLookSpeed ?? camState.baseLookSpeed;
+        camState.sprintMult = config.camera.sprintMult ?? camState.sprintMult;
+        camState.slowMult = config.camera.slowMult ?? camState.slowMult;
+      }
+
+      // snap
+      if (config.toolbar?.snap) {
+        editor.snapGrid = config.toolbar.snap.grid?.default ?? false;
+        editor.snapGridSize = config.toolbar.snap.grid?.size ?? 0.5;
+        editor.snapObject = config.toolbar.snap.object?.default ?? false;
+      }
     }
 
     // ═══════════ INIT ═══════════
@@ -165,7 +434,6 @@
       camera.fov = 0.9;
       applyRotation();
 
-      // نور
       const sun = new BABYLON.DirectionalLight('sun', new BABYLON.Vector3(-0.5, -1, -0.3), scene);
       sun.intensity = 1.2;
       const amb = new BABYLON.HemisphericLight('amb', new BABYLON.Vector3(0, 1, 0), scene);
@@ -187,17 +455,17 @@
       }
       grid.isPickable = false;
 
-      // Highlight
       highlightLayer = new BABYLON.HighlightLayer('__hl', scene);
       highlightLayer.innerGlow = false;
+      highlightLayer.outerGlow = true;
 
-      // ═══════════ INPUT ═══════════
+      setupGizmo();
       setupInput();
       setupPicking();
 
-      // ═══════════ RENDER LOOP ═══════════
       engine.runRenderLoop(() => {
         updateCamera(engine.getDeltaTime() / 1000);
+        applySnap();
         scene.render();
         fpsEl.textContent = engine.getFps().toFixed(0) + ' FPS';
       });
@@ -208,6 +476,268 @@
       canvas.focus();
       vscode.postMessage({ type: 'ready' });
     });
+
+    // ═══════════ TOOLBAR BUILD ═══════════
+    function buildToolbar() {
+      if (!config) return;
+
+      // ── Add Object dropdown ──
+      addObjMenu.innerHTML = '';
+      for (const item of config.toolbar.addObjects) {
+        const el = document.createElement('div');
+        el.className = 'tb-dd-item';
+        el.innerHTML = '<span class="icon">' + item.icon + '</span>' + item.label;
+        el.addEventListener('click', () => {
+          addObject(item.geometry);
+          addObjWrap.classList.remove('open');
+        });
+        addObjMenu.appendChild(el);
+      }
+
+      addObjBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        addObjWrap.classList.toggle('open');
+      });
+
+      document.addEventListener('click', () => addObjWrap.classList.remove('open'));
+
+      // ── Transform modes ──
+      for (const m of config.toolbar.transformModes) {
+        const btn = makeButton(m.icon, m.label, () => setTransformMode(m.id), m.id === editor.transformMode);
+        btn.dataset.mode = m.id;
+        transformGroup.appendChild(btn);
+      }
+
+      // ── Reference modes ──
+      for (const m of config.toolbar.referenceModes) {
+        const btn = makeButton(m.icon, m.label, () => setReferenceMode(m.id), m.id === editor.referenceMode);
+        btn.dataset.mode = m.id;
+        refGroup.appendChild(btn);
+      }
+
+      // ── Shader modes ──
+      for (const m of config.toolbar.shaderModes) {
+        const btn = makeButton(m.icon, m.label, () => setShaderMode(m.id), m.id === editor.shaderMode);
+        btn.dataset.mode = m.id;
+        shaderGroup.appendChild(btn);
+      }
+
+      // ── Snap toggles ──
+      const snapGridBtn = makeButton('▦', 'Grid', () => toggleSnapGrid(), editor.snapGrid);
+      snapGridBtn.title = 'Snap to Grid (' + editor.snapGridSize + ')';
+      snapGridBtn.dataset.snap = 'grid';
+
+      const snapObjBtn = makeButton('⬡', 'Object', () => toggleSnapObject(), editor.snapObject);
+      snapObjBtn.dataset.snap = 'object';
+
+      snapGroup.appendChild(snapGridBtn);
+      snapGroup.appendChild(snapObjBtn);
+    }
+
+    function makeButton(icon, label, onClick, active) {
+      const btn = document.createElement('button');
+      btn.className = 'tb-btn' + (active ? ' active' : '');
+      btn.innerHTML = '<span class="icon">' + icon + '</span><span class="label">' + label + '</span>';
+      btn.title = label;
+      btn.addEventListener('click', onClick);
+      return btn;
+    }
+
+    function setActiveInGroup(group, mode) {
+      group.querySelectorAll('.tb-btn').forEach((b) => {
+        if (b.dataset.mode) b.classList.toggle('active', b.dataset.mode === mode);
+      });
+    }
+
+    // ═══════════ TOOLBAR ACTIONS ═══════════
+    function setTransformMode(mode) {
+      editor.transformMode = mode;
+
+      if (!gizmoManager) return;
+      gizmoManager.positionGizmoEnabled = mode === 'move';
+      gizmoManager.rotationGizmoEnabled = mode === 'rotate';
+      gizmoManager.scaleGizmoEnabled = mode === 'scale';
+
+      // تنظیمات بعد از toggle
+      if (gizmoManager.gizmos.positionGizmo) {
+        gizmoManager.gizmos.positionGizmo.updateGizmoRotationToMatchAttachedMesh = (editor.referenceMode === 'object');
+        gizmoManager.gizmos.positionGizmo.updateGizmoPositionToMatchAttachedMesh = true;
+      }
+      if (gizmoManager.gizmos.rotationGizmo) {
+        gizmoManager.gizmos.rotationGizmo.updateGizmoRotationToMatchAttachedMesh = (editor.referenceMode === 'object');
+      }
+      if (gizmoManager.gizmos.scaleGizmo) {
+        gizmoManager.gizmos.scaleGizmo.updateGizmoRotationToMatchAttachedMesh = (editor.referenceMode === 'object');
+      }
+
+      // Re-attach
+      if (selectedIds.length > 0) attachGizmoTo(selectedIds[0]);
+
+      setActiveInGroup(transformGroup, mode);
+      setStatus('● Transform: ' + mode, true);
+    }
+
+    function setReferenceMode(mode) {
+      editor.referenceMode = mode;
+      setTransformMode(editor.transformMode); // re-apply
+      setActiveInGroup(refGroup, mode);
+      setStatus('● Space: ' + mode, true);
+    }
+
+    function setShaderMode(mode) {
+      editor.shaderMode = mode;
+
+      scene.meshes.forEach((m) => {
+        if (!m.material || m.name === '__grid') return;
+        if (m.name.endsWith('_g')) return; // light/camera gizmo
+        if (m.material.wireframe !== undefined) {
+          m.material.wireframe = (mode === 'wireframe');
+        }
+        // "both": وایرفریم + solid → wireframe روی solid
+        if (mode === 'both') {
+          m.material.wireframe = true;
+          m.material.alpha = 0.85;
+        } else {
+          m.material.alpha = 1;
+        }
+      });
+
+      setActiveInGroup(shaderGroup, mode);
+      setStatus('● View: ' + mode, true);
+    }
+
+    function toggleSnapGrid() {
+      editor.snapGrid = !editor.snapGrid;
+      const btn = snapGroup.querySelector('[data-snap="grid"]');
+      if (btn) btn.classList.toggle('active', editor.snapGrid);
+      setStatus('● Snap Grid: ' + (editor.snapGrid ? 'ON (' + editor.snapGridSize + ')' : 'OFF'), true);
+    }
+
+    function toggleSnapObject() {
+      editor.snapObject = !editor.snapObject;
+      const btn = snapGroup.querySelector('[data-snap="object"]');
+      if (btn) btn.classList.toggle('active', editor.snapObject);
+      setStatus('● Snap Object: ' + (editor.snapObject ? 'ON' : 'OFF'), true);
+    }
+
+    // ═══════════ SNAP LOGIC ═══════════
+    let snapWasActive = false;
+
+    function applySnap() {
+      const mesh = selectedIds[0] ? nodeIdToMesh.get(selectedIds[0]) : null;
+      if (!mesh || !mesh.getClassName || !mesh.getClassName().includes('Mesh')) return;
+
+      const gizmoActive = gizmoManager && (
+        gizmoManager.gizmos.positionGizmo?.isHovered ||
+        gizmoManager.gizmos.positionGizmo?.isDragging ||
+        gizmoManager.gizmos.rotationGizmo?.isHovered ||
+        gizmoManager.gizmos.rotationGizmo?.isDragging ||
+        gizmoManager.gizmos.scaleGizmo?.isHovered ||
+        gizmoManager.gizmos.scaleGizmo?.isDragging
+      );
+
+      if (!gizmoActive) return;
+
+      // Snap to grid
+      if (editor.snapGrid) {
+        const g = editor.snapGridSize;
+        mesh.position.x = Math.round(mesh.position.x / g) * g;
+        mesh.position.y = Math.round(mesh.position.y / g) * g;
+        mesh.position.z = Math.round(mesh.position.z / g) * g;
+      }
+
+      // Snap to object (ساده: نزدیک‌ترین mesh دیگه)
+      if (editor.snapObject) {
+        const threshold = config?.toolbar?.snap?.object?.threshold ?? 0.3;
+        for (const other of scene.meshes) {
+          if (other === mesh) continue;
+          if (other.name === '__grid') continue;
+          if (!meshToNodeId.has(other)) continue;
+
+          const d = BABYLON.Vector3.Distance(mesh.position, other.position);
+          if (d < threshold) {
+            mesh.position.copyFrom(other.position);
+            break;
+          }
+        }
+      }
+
+      // Sync back به extension
+      if (!snapWasActive) {
+        snapWasActive = true;
+        const nodeId = meshToNodeId.get(mesh);
+        if (nodeId) {
+          vscode.postMessage({
+            type: 'update:transform',
+            nodeId,
+            channel: 'position',
+            axis: 'x',
+            value: mesh.position.x,
+          });
+        }
+      } else {
+        snapWasActive = false;
+      }
+    }
+
+    // ═══════════ ADD OBJECT ═══════════
+    function addObject(geometry) {
+      const name = geometry.charAt(0).toUpperCase() + geometry.slice(1);
+      vscode.postMessage({
+        type: 'add:node',
+        payload: {
+          name,
+          components: [{
+            type: 'mesh',
+            geometry,
+            material: { color: '#6B46C1', metallic: 0.2, roughness: 0.6 },
+          }],
+          transform: {
+            position: { x: 0, y: 0, z: 0 },
+            rotation: { x: 0, y: 0, z: 0, w: 1 },
+            scale: { x: 1, y: 1, z: 1 },
+          },
+        },
+      });
+      setStatus('● Added ' + name, true);
+    }
+
+    // ═══════════ GIZMO ═══════════
+    function setupGizmo() {
+      gizmoManager = new BABYLON.GizmoManager(scene);
+      gizmoManager.usePointerToAttachGizmos = false;
+      gizmoManager.positionGizmoEnabled = true;
+      gizmoManager.rotationGizmoEnabled = false;
+      gizmoManager.scaleGizmoEnabled = false;
+      gizmoManager.boundingBoxGizmoEnabled = false;
+
+      const ratio = config?.gizmo?.scaleRatio ?? 1.0;
+      if (gizmoManager.gizmos.positionGizmo) {
+        gizmoManager.gizmos.positionGizmo.updateGizmoRotationToMatchAttachedMesh = false;
+        gizmoManager.gizmos.positionGizmo.updateGizmoPositionToMatchAttachedMesh = true;
+        gizmoManager.gizmos.positionGizmo.scaleRatio = ratio;
+      }
+      if (gizmoManager.gizmos.rotationGizmo) {
+        gizmoManager.gizmos.rotationGizmo.scaleRatio = ratio;
+      }
+      if (gizmoManager.gizmos.scaleGizmo) {
+        gizmoManager.gizmos.scaleGizmo.scaleRatio = ratio;
+      }
+    }
+
+    function attachGizmoTo(nodeId) {
+      if (!gizmoManager) return;
+      const mesh = nodeIdToMesh.get(nodeId);
+      if (mesh && mesh.getClassName && mesh.getClassName().includes('Mesh')) {
+        gizmoManager.attachToMesh(mesh);
+      } else {
+        gizmoManager.attachToMesh(null);
+      }
+    }
+
+    function detachGizmo() {
+      if (gizmoManager) gizmoManager.attachToMesh(null);
+    }
 
     // ═══════════ ROTATION ═══════════
     function applyRotation() {
@@ -222,10 +752,8 @@
 
     // ═══════════ INPUT ═══════════
     function setupInput() {
-      // جلوگیری از منوی راست‌کلیک
       document.addEventListener('contextmenu', (e) => e.preventDefault(), { capture: true });
 
-      // ─── Wheel = سرعت پایه ───
       canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
         camState.baseSpeed *= e.deltaY > 0 ? 0.9 : 1.1;
@@ -233,19 +761,14 @@
         setStatus('● Speed: ' + camState.baseSpeed.toFixed(2), true);
       }, { passive: false });
 
-      // ─── کلیک چپ: فوکوس ───
       canvas.addEventListener('mousedown', (e) => {
         if (e.button === 0) canvas.focus();
       });
 
-      // ─── کیبورد ───
-      // از capture استفاده می‌کنیم که قبل از VS Code بگیریم (تا حد امکان)
       window.addEventListener('keydown', (e) => {
         if (e.target && e.target.tagName === 'INPUT') return;
 
         const code = e.code;
-
-        // کلیدهای حرکت و چرخش
         const handled =
           code === 'KeyW' || code === 'KeyA' || code === 'KeyS' || code === 'KeyD' ||
           code === 'KeyQ' || code === 'KeyE' ||
@@ -263,6 +786,13 @@
         keys.add(code);
         if (code === 'ShiftLeft' || code === 'ShiftRight') shiftHeld = true;
         if (code === 'Space') spaceHeld = true;
+
+        // hotkeys for transform modes (Ctrl+G/R/S)
+        if (e.ctrlKey || e.metaKey) {
+          if (code === 'KeyG') { setTransformMode('move'); e.preventDefault(); }
+          if (code === 'KeyR') { setTransformMode('rotate'); e.preventDefault(); }
+          if (code === 'KeyT') { setTransformMode('scale'); e.preventDefault(); }
+        }
 
         if (code === 'Escape') {
           vscode.postMessage({ type: 'select', ids: [] });
@@ -288,7 +818,6 @@
         if (code === 'Space') spaceHeld = false;
       }, { capture: true });
 
-      // ─── blur: پاک‌سازی ───
       window.addEventListener('blur', () => {
         keys.clear();
         shiftHeld = false;
@@ -296,19 +825,14 @@
       });
     }
 
-    // ═══════════ UPDATE CAMERA (چرخش + حرکت) ═══════════
+    // ═══════════ UPDATE CAMERA ═══════════
     function updateCamera(dt) {
-      // ─── چرخش با IJKL (و فلش‌ها اگه کار کردن) ───
       const lookMult = shiftHeld ? camState.sprintMult : (spaceHeld ? camState.slowMult : 1);
       const lookStep = camState.baseLookSpeed * lookMult * dt;
 
       let rotated = false;
-
-      // Yaw: J/ArrowLeft چپ, L/ArrowRight راست
       if (keys.has('KeyJ') || keys.has('ArrowLeft')) { camState.yaw -= lookStep; rotated = true; }
       if (keys.has('KeyL') || keys.has('ArrowRight')) { camState.yaw += lookStep; rotated = true; }
-
-      // Pitch: I/ArrowUp بالا, K/ArrowDown پایین
       if (keys.has('KeyI') || keys.has('ArrowUp')) { camState.pitch += lookStep; rotated = true; }
       if (keys.has('KeyK') || keys.has('ArrowDown')) { camState.pitch -= lookStep; rotated = true; }
 
@@ -317,7 +841,6 @@
         applyRotation();
       }
 
-      // ─── حرکت با WASDQE ───
       if (keys.size === 0) return;
 
       const moveMult = shiftHeld ? camState.sprintMult : (spaceHeld ? camState.slowMult : 1);
@@ -340,17 +863,7 @@
       }
     }
 
-    // ═══════════ MESSAGES ═══════════
-    window.addEventListener('message', (e) => {
-      const msg = e.data;
-      if (msg.type === 'scene:update') {
-        if (scene) rebuildScene(msg.payload);
-      } else if (msg.type === 'selection:update') {
-        applySelection(msg.ids || []);
-      }
-    });
-
-    // ═══════════ BUILD ═══════════
+    // ═══════════ BUILD SCENE ═══════════
     function buildNode(nodeData, parent) {
       const mc = (nodeData.components || []).find(c => c.type === 'mesh');
       const lc = (nodeData.components || []).find(c => c.type === 'light');
@@ -413,25 +926,37 @@
     }
 
     function rebuildScene(data) {
+      detachGizmo();
       for (const [, obj] of nodeIdToMesh) { try { obj.dispose(); } catch { } }
       nodeIdToMesh.clear();
       for (const child of data.root.children ?? []) buildNode(child, null);
       applySelection(selectedIds);
-      hud.innerHTML =
-        '<b>Weaver — ' + data.name + '</b><br/>' +
-        '<span class="k">IJKL</span> look &nbsp; <span class="k">WASD</span> move &nbsp; <span class="k">Q/E</span> down/up<br/>' +
-        '<span class="k">Shift</span> fast &nbsp; <span class="k">Space</span> slow &nbsp; <span class="k">Wheel</span> speed<br/>' +
-        '<span class="k">LMB</span> select &nbsp; <span class="k">Esc</span> deselect';
     }
 
+    // ═══════════ HIGHLIGHT ═══════════
     function applySelection(ids) {
       selectedIds = ids || [];
       if (!highlightLayer) return;
+      refreshHighlights();
+      if (selectedIds.length > 0) {
+        attachGizmoTo(selectedIds[0]);
+      } else {
+        detachGizmo();
+      }
+    }
+
+    function refreshHighlights() {
       highlightLayer.removeAllMeshes();
+
+      if (hoveredMesh && meshToNodeId.has(hoveredMesh)) {
+        highlightLayer.addMesh(hoveredMesh, HOVER_COLOR);
+      }
+
       for (const id of selectedIds) {
         const mesh = nodeIdToMesh.get(id);
         if (mesh && mesh.getClassName && mesh.getClassName().includes('Mesh')) {
-          highlightLayer.addMesh(mesh, new BABYLON.Color3(1, 0.6, 0.15));
+          highlightLayer.removeMesh(mesh);
+          highlightLayer.addMesh(mesh, SELECT_COLOR);
         }
       }
     }
@@ -439,8 +964,29 @@
     // ═══════════ PICKING ═══════════
     function setupPicking() {
       scene.onPointerObservable.add((pi) => {
+        if (pi.type !== BABYLON.PointerEventTypes.POINTERMOVE) return;
+        if (!scene) return;
+
+        const pick = scene.pick(scene.pointerX, scene.pointerY, (m) => {
+          if (!m || !m.isPickable) return false;
+          if (m.name === '__grid') return false;
+          if (!meshToNodeId.has(m)) return false;
+          return true;
+        });
+
+        const newHover = (pick && pick.hit && pick.pickedMesh) ? pick.pickedMesh : null;
+
+        if (newHover !== hoveredMesh) {
+          hoveredMesh = newHover;
+          refreshHighlights();
+          canvas.style.cursor = hoveredMesh ? 'pointer' : 'default';
+        }
+      });
+
+      scene.onPointerObservable.add((pi) => {
         if (pi.type !== BABYLON.PointerEventTypes.POINTERPICK) return;
         if (pi.event.button !== 0) return;
+
         const picked = pi.pickInfo?.pickedMesh;
         const nodeId = picked ? meshToNodeId.get(picked) : null;
         vscode.postMessage({ type: 'select', ids: nodeId ? [nodeId] : [] });

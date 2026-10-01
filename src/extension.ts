@@ -152,6 +152,30 @@ class Logger {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// CONFIG LAYER
+// ═══════════════════════════════════════════════════════════════
+
+interface WeaverConfig {
+	version: string;
+	toolbar: {
+		addObjects: Array<{ id: string; label: string; icon: string; geometry: string }>;
+		transformModes: Array<{ id: string; label: string; icon: string; key?: string }>;
+		referenceModes: Array<{ id: string; label: string; icon: string }>;
+		shaderModes: Array<{ id: string; label: string; icon: string }>;
+		snap: {
+			grid: { default: boolean; size: number; sizes: number[] };
+			object: { default: boolean; threshold: number };
+		};
+	};
+	gizmo: { scaleRatio: number; alwaysOnTop: boolean; snapDistance: number };
+	camera: { baseSpeed: number; baseLookSpeed: number; sprintMult: number; slowMult: number };
+	highlights: {
+		hover: { r: number; g: number; b: number };
+		selected: { r: number; g: number; b: number };
+	};
+}
+
+// ═══════════════════════════════════════════════════════════════
 // SCENE LAYER
 // ═══════════════════════════════════════════════════════════════
 
@@ -767,6 +791,19 @@ function loadWebviewHtml(context: vscode.ExtensionContext, webview: vscode.Webvi
 	return html.replace(/\{\{nonce\}\}/g, nonce).replace(/\{\{cspSource\}\}/g, webview.cspSource);
 }
 
+function loadWeaverConfig(context: vscode.ExtensionContext): WeaverConfig | null {
+	const uri = vscode.Uri.joinPath(context.extensionUri, "src", "webview", "weaver.config.json");
+	try {
+		const raw = fs.readFileSync(uri.fsPath, "utf8");
+		const cfg = JSON.parse(raw) as WeaverConfig;
+		log.info("weaver config loaded v" + cfg.version);
+		return cfg;
+	} catch (err) {
+		log.error("failed to load weaver.config.json", err);
+		return null;
+	}
+}
+
 // ═══════════════════════════════════════════════════════════════
 // VS CODE INTEGRATION
 // ═══════════════════════════════════════════════════════════════
@@ -778,9 +815,11 @@ export function activate(context: vscode.ExtensionContext): void {
 	Logger.setLevel(LogLevel.Debug);
 
 	const editor = new EditorContext();
+	const config = loadWeaverConfig(context);
+
 	context.subscriptions.push({ dispose: () => editor.dispose() });
 
-	context.subscriptions.push(vscode.window.registerCustomEditorProvider("weaver.viewport", new WeaverViewportProvider(context, editor), { webviewOptions: { retainContextWhenHidden: true } }));
+	context.subscriptions.push(vscode.window.registerCustomEditorProvider("weaver.viewport", new WeaverViewportProvider(context, editor, config), { webviewOptions: { retainContextWhenHidden: true } }));
 
 	context.subscriptions.push(vscode.window.registerWebviewViewProvider("weaver.inspector", new InspectorProvider(context, editor)));
 
@@ -837,6 +876,7 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 	constructor(
 		private readonly context: vscode.ExtensionContext,
 		private readonly editor: EditorContext,
+		private readonly config: WeaverConfig | null,
 	) {}
 
 	async resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): Promise<void> {
@@ -845,6 +885,11 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 			localResourceRoots: [this.context.extensionUri],
 		};
 		panel.webview.html = loadWebviewHtml(this.context, panel.webview, "viewport.html");
+
+		// ─── Config رو اول بفرست ───
+		if (this.config) {
+			panel.webview.postMessage({ type: "config", payload: this.config });
+		}
 
 		const update = () => {
 			try {
@@ -879,6 +924,10 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 				await vscode.workspace.applyEdit(edit);
 			} else if (msg.type === "select") {
 				this.editor.selection.set(msg.ids ?? []);
+			} else if (msg.type === "add:node") {
+				await this.handleAddNode(document, msg.payload);
+			} else if (msg.type === "update:transform") {
+				this.handleTransformUpdate(msg);
 			} else if (msg.type === "ready") {
 				if (!initialSent) {
 					initialSent = true;
@@ -886,6 +935,54 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 				}
 			}
 		});
+	}
+
+	// ─── اضافه کردن Node جدید ───
+	private async handleAddNode(document: vscode.TextDocument, data: any): Promise<void> {
+		try {
+			const newNode = new Node(data.name);
+			if (data.transform) {
+				newNode.transform.position = { ...data.transform.position };
+				newNode.transform.rotation = { ...data.transform.rotation };
+				newNode.transform.scale = { ...data.transform.scale };
+			}
+			for (const c of data.components ?? []) {
+				const { id: _ignore, ...rest } = c;
+				newNode.addComponent({ id: nextComponentId(), ...rest } as Component);
+			}
+
+			// اضافه به scene داخلی
+			const cmd = new AddNodeCommand(this.editor.scene, newNode);
+			this.editor.commands.execute(cmd);
+
+			// آپدیت فایل
+			const updatedJson = Serializer.serialize(this.editor.scene);
+			const edit = new vscode.WorkspaceEdit();
+			edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), updatedJson);
+			await vscode.workspace.applyEdit(edit);
+
+			// انتخابش کن
+			this.editor.selection.set([newNode.id]);
+			log.info("added node", newNode.name, newNode.id);
+		} catch (err) {
+			log.error("handleAddNode failed", err);
+		}
+	}
+
+	// ─── آپدیت transform (از Gizmo drag) ───
+	private handleTransformUpdate(msg: any): void {
+		try {
+			const node = this.editor.scene.findNode(msg.nodeId);
+			if (!node) return;
+			const { axis, channel, value } = msg;
+			const target = node.transform[channel as "position" | "rotation" | "scale"] as any;
+			if (target && typeof value === "number") {
+				target[axis] = value;
+				this.editor.markDirty(true);
+			}
+		} catch (err) {
+			log.error("handleTransformUpdate failed", err);
+		}
 	}
 }
 
