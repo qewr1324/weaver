@@ -75,6 +75,27 @@ export class Scene extends Disposable {
 		return deepMerge(global, this.config);
 	}
 
+	/**
+	 * محتویات این Scene رو با یه Scene دیگه جایگزین کن،
+	 * بدون اینکه object خود `Scene` عوض بشه.
+	 * برای sync از فایل → editor استفاده می‌شه.
+	 */
+	replaceContents(other: Scene): void {
+		// پاک کردن children فعلی
+		this.root.children.length = 0;
+
+		this.name = other.name;
+		this.config = other.config;
+
+		// کپی کردن children از scene دیگه (با clone تا objectها مستقل باشن)
+		for (const child of other.root.children) {
+			const cloned = Node.fromJSON(child.toJSON());
+			this.root.addChild(cloned);
+		}
+
+		this.bus.emit("scene:changed", undefined);
+	}
+
 	toJSON(): SceneData {
 		return {
 			version: "1.0",

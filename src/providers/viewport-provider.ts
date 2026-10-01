@@ -56,21 +56,24 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 			});
 		};
 
-		// sub: فایل تغییر کرد → scene رو دوباره load کن
+		// ─── sub: فایل تغییر کرد → scene رو دوباره load کن ───
 		const changeSub = vscode.workspace.onDidChangeTextDocument((e) => {
 			if (e.document.uri.toString() !== document.uri.toString()) return;
-			if (doc.dirty) return;
+
+			// ─── اگه خودمون داریم می‌نویسیم، ignore ───
+			if (doc.writing) return;
+
+			// ─── از فایل بخون و محتویات scene رو جایگزین کن ───
 			doc.applyFromText(e.document.getText());
-			this.editor.loadScene(doc.scene);
 			sendScene();
 		});
 
-		// sub: selection
+		// ─── sub: selection ───
 		const selSub = this.editor.selection.bus.on("changed", (ids) => {
 			post({ type: "selection:update", ids });
 		});
 
-		// sub: scene mutated → flush به فایل (debounced)
+		// ─── sub: scene mutated → flush به فایل (debounced) ───
 		let flushTimer: NodeJS.Timeout | null = null;
 		const mutatedSub = this.editor.scene.bus.on("scene:changed", () => {
 			if (flushTimer) clearTimeout(flushTimer);
