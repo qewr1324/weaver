@@ -1,444 +1,552 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none';
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'none';
            style-src {{cspSource}} 'unsafe-inline';
            script-src 'nonce-{{nonce}}' https://cdn.babylonjs.com 'unsafe-eval';
            connect-src https://cdn.babylonjs.com;
            worker-src blob:;" />
-    <style>
-        html,
-        body {
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background: #0D1117;
-        }
-
-        #renderCanvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-            outline: none;
-            touch-action: none;
-        }
-
-        #hud {
-            position: absolute;
-            top: 8px;
-            left: 8px;
-            color: #A78BFA;
-            font: 12px/1.6 monospace;
-            pointer-events: none;
-            background: rgba(13, 17, 23, .75);
-            padding: 8px 12px;
-            border-radius: 4px;
-            z-index: 10;
-            line-height: 1.8;
-        }
-
-        #hud b {
-            color: #fff;
-        }
-
-        #hud .k {
-            color: #6BFF8F;
-            font-weight: bold;
-        }
-
-        #fps {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            color: #6BFF8F;
-            font: 12px/1.6 monospace;
-            pointer-events: none;
-            background: rgba(13, 17, 23, .75);
-            padding: 6px 10px;
-            border-radius: 4px;
-            z-index: 10;
-        }
-
-        #loading {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #A78BFA;
-            font: 14px monospace;
-            z-index: 5;
-        }
-    </style>
+<style>
+  html, body { width:100%; height:100%; margin:0; padding:0; overflow:hidden; background:#1a1f2e; }
+  #renderCanvas { width:100%; height:100%; display:block; outline:none; touch-action:none; cursor:default; }
+  #renderCanvas.looking { cursor:none; }
+  #hud {
+    position:absolute; top:8px; left:8px; color:#A78BFA;
+    font:12px/1.6 monospace; pointer-events:none;
+    background:rgba(13,17,23,.75); padding:8px 12px; border-radius:4px;
+    z-index:10; line-height:1.8;
+  }
+  #hud b { color:#fff; }
+  #hud .k { color:#6BFF8F; font-weight:bold; }
+  #fps {
+    position:absolute; top:8px; right:8px; color:#6BFF8F;
+    font:12px/1.6 monospace; pointer-events:none;
+    background:rgba(13,17,23,.75); padding:6px 10px; border-radius:4px;
+    z-index:10;
+  }
+  #crosshair {
+    position:absolute; top:50%; left:50%;
+    width:14px; height:14px;
+    transform:translate(-50%,-50%);
+    pointer-events:none;
+    z-index:9;
+    opacity:0;
+    transition:opacity .12s;
+  }
+  #crosshair.active { opacity:1; }
+  #crosshair::before, #crosshair::after {
+    content:''; position:absolute; background:#6BFF8F;
+    box-shadow:0 0 4px #6BFF8Faa;
+  }
+  #crosshair::before {
+    left:50%; top:0; width:1.5px; height:100%; transform:translateX(-50%);
+  }
+  #crosshair::after {
+    top:50%; left:0; height:1.5px; width:100%; transform:translateY(-50%);
+  }
+  #loading {
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color:#A78BFA; font:14px monospace; z-index:5;
+    background:#1a1f2e;
+  }
+  #mode {
+    position:absolute; bottom:12px; left:50%; transform:translateX(-50%);
+    color:#A78BFA; font:11px monospace; pointer-events:none;
+    background:rgba(13,17,23,.75); padding:4px 10px; border-radius:4px;
+    z-index:10; opacity:0; transition:opacity .15s;
+  }
+  #mode.active { opacity:1; }
+</style>
 </head>
-
 <body>
-    <div id="hud">
-        <b>Weaver Viewport</b><br />
-        <span class="k">RMB</span> look &nbsp; <span class="k">WASD</span> move &nbsp; <span class="k">Q/E</span>
-        down/up<br />
-        <span class="k">Shift</span> sprint &nbsp; <span class="k">Alt</span> slow &nbsp; <span class="k">Wheel</span>
-        speed<br />
-        <span class="k">LMB</span> select &nbsp; <span class="k">F</span> focus &nbsp; <span class="k">Esc</span>
-        deselect
-    </div>
-    <div id="fps">-- FPS</div>
-    <div id="loading">Loading Babylon…</div>
-    <canvas id="renderCanvas"></canvas>
+<div id="hud">
+  <b>Weaver Viewport</b><br/>
+  <span class="k">RMB</span> look &nbsp; <span class="k">WASD</span> move &nbsp; <span class="k">Q/E</span> down/up<br/>
+  <span class="k">Shift</span> sprint &nbsp; <span class="k">Alt</span> slow &nbsp; <span class="k">Wheel</span> speed<br/>
+  <span class="k">LMB</span> select &nbsp; <span class="k">F</span> focus &nbsp; <span class="k">Esc</span> deselect
+</div>
+<div id="fps">-- FPS</div>
+<div id="crosshair"></div>
+<div id="mode">LOOK MODE — release RMB to exit</div>
+<div id="loading">Loading Babylon…</div>
+<canvas id="renderCanvas"></canvas>
 
-    <script nonce="{{nonce}}" src="https://cdn.babylonjs.com/babylon.js"></script>
-    <script nonce="{{nonce}}">
-        const vscode = acquireVsCodeApi();
-        const canvas = document.getElementById('renderCanvas');
-        const hud = document.getElementById('hud');
-        const fpsEl = document.getElementById('fps');
-        const loading = document.getElementById('loading');
+<script nonce="{{nonce}}" src="https://cdn.babylonjs.com/babylon.js"></script>
+<script nonce="{{nonce}}">
+  const vscode = acquireVsCodeApi();
+  const canvas = document.getElementById('renderCanvas');
+  const hud = document.getElementById('hud');
+  const fpsEl = document.getElementById('fps');
+  const loading = document.getElementById('loading');
+  const crosshair = document.getElementById('crosshair');
+  const modeEl = document.getElementById('mode');
 
-        let engine, scene, camera, highlightLayer;
-        let sceneData = null;
-        const nodeIdToMesh = new Map();
-        const meshToNodeId = new WeakMap();
-        let selectedIds = [];
+  let engine, scene, camera, highlightLayer;
+  let sceneData = null;
+  const nodeIdToMesh = new Map();
+  const meshToNodeId = new WeakMap();
+  let selectedIds = [];
 
-        // ─── Camera state (persists across rebuilds) ──────────────────
-        const camState = {
-            pos: new BABYLON.Vector3(8, 6, -10),
-            yaw: -Math.PI / 4,
-            pitch: -Math.PI / 8,
-            baseSpeed: 0.35,
-            sprint: 4,
-            slow: 0.25,
-        };
+  // ─── Camera state ─────────────────────────────────────────────
+  const camState = {
+    pos: new BABYLON.Vector3(8, 6, -10),
+    yaw: -Math.PI / 4,
+    pitch: -Math.PI / 8,
+    baseSpeed: 0.35,
+    sprint: 4,
+    slow: 0.25,
+  };
 
-        // ─── Input ────────────────────────────────────────────────────
-        const keys = new Set();
-        let sprint = false, slow = false;
-        let rmbDown = false;
-        let lastMouse = { x: 0, y: 0 };
+  // ─── Input state ──────────────────────────────────────────────
+  const keys = new Set();
+  let sprint = false, slow = false;
+  let rmbDown = false;
+  let looking = false;               // حالت look فعاله؟
+  let lastMouse = { x: 0, y: 0 };
 
-        function initBabylon() {
-            if (typeof BABYLON === 'undefined') {
-                loading.textContent = 'Failed to load Babylon (offline?)';
-                return;
-            }
-            loading.remove();
+  function log(...args) {
+    console.log('[Weaver]', ...args);
+  }
 
-            engine = new BABYLON.Engine(canvas, true, {
-                preserveDrawingBuffer: true,
-                stencil: true,
-                antialias: true,
-            });
-            scene = new BABYLON.Scene(engine);
-            scene.clearColor = new BABYLON.Color4(0.05, 0.07, 0.09, 1);
-            scene.ambientColor = new BABYLON.Color3(0.2, 0.2, 0.25);
+  function initBabylon() {
+    log('initBabylon called');
 
-            // ═══ Unity-style Free Camera ═══
-            camera = new BABYLON.FreeCamera('editorCam', camState.pos.clone(), scene);
-            camera.minZ = 0.05;
-            camera.maxZ = 10000;
-            camera.fov = 0.9;
-            camera.inertia = 0.85;
-            applyCameraRotation();
+    if (typeof BABYLON === 'undefined') {
+      loading.textContent = 'Failed to load Babylon (offline?)';
+      return;
+    }
+    log('BABYLON version:', BABYLON.Engine.Version);
+    loading.remove();
 
-            // ═══ Startup environment ═══
-            buildStartupEnvironment();
+    // ─── Engine ─────────────────────────────────────────────────
+    engine = new BABYLON.Engine(canvas, true, {
+      preserveDrawingBuffer: true,
+      stencil: true,
+      antialias: true,
+    });
 
-            // ═══ Input / Picking ═══
-            setupInput();
-            setupPicking();
+    scene = new BABYLON.Scene(engine);
+    scene.clearColor = new BABYLON.Color4(0.15, 0.18, 0.24, 1);
+    scene.ambientColor = new BABYLON.Color3(0.3, 0.3, 0.35);
 
-            // ═══ Render loop ═══
-            engine.runRenderLoop(() => {
-                updateCameraMovement();
-                scene.render();
-                fpsEl.textContent = engine.getFps().toFixed(0) + ' FPS';
-            });
+    // ─── Camera ─────────────────────────────────────────────────
+    camera = new BABYLON.FreeCamera('editorCam', camState.pos.clone(), scene);
+    camera.minZ = 0.05;
+    camera.maxZ = 10000;
+    camera.fov = 0.9;
+    camera.inertia = 0.85;
+    applyCameraRotation();
 
-            window.addEventListener('resize', () => engine.resize());
-            setTimeout(() => engine.resize(), 100);
+    // ─── Env ────────────────────────────────────────────────────
+    buildStartupEnvironment();
 
-            vscode.postMessage({ type: 'ready' });
-        }
+    // ─── Input & picking ────────────────────────────────────────
+    setupInput();
+    setupPicking();
 
-        // ─── Unity default environment ────────────────────────────────
-        function buildStartupEnvironment() {
-            const sun = new BABYLON.DirectionalLight(
-                'defaultSun',
-                new BABYLON.Vector3(-0.5, -1, -0.3).normalize(),
-                scene,
-            );
-            sun.intensity = 1.3;
-            sun.diffuse = new BABYLON.Color3(1, 0.97, 0.9);
+    // ─── Render ─────────────────────────────────────────────────
+    engine.runRenderLoop(() => {
+      updateCameraMovement();
+      scene.render();
+      fpsEl.textContent = engine.getFps().toFixed(0) + ' FPS';
+    });
 
-            const ambient = new BABYLON.HemisphericLight(
-                'defaultAmbient',
-                new BABYLON.Vector3(0, 1, 0),
-                scene,
-            );
-            ambient.intensity = 0.5;
-            ambient.diffuse = new BABYLON.Color3(0.55, 0.65, 0.85);
-            ambient.groundColor = new BABYLON.Color3(0.1, 0.1, 0.15);
+    window.addEventListener('resize', () => engine.resize());
+    setTimeout(() => engine.resize(), 100);
 
-            // Grid
-            const grid = BABYLON.MeshBuilder.CreateGround('__grid', { width: 100, height: 100 }, scene);
-            const gridMat = new BABYLON.GridMaterial('__gridMat', scene);
-            gridMat.majorUnitFrequency = 10;
-            gridMat.minorUnitVisibility = 0.35;
-            gridMat.gridRatio = 1;
-            gridMat.mainColor = new BABYLON.Color3(0.25, 0.27, 0.32);
-            gridMat.lineColor = new BABYLON.Color3(0.4, 0.42, 0.5);
-            gridMat.opacity = 0.98;
-            grid.material = gridMat;
-            grid.isPickable = false;
-            grid.position.y = 0;
+    // ─── Debug report ───────────────────────────────────────────
+    setTimeout(() => {
+      log('--- SCENE REPORT ---');
+      log('meshes:', scene.meshes.length, scene.meshes.map(m => m.name));
+      log('lights:', scene.lights.length, scene.lights.map(l => l.name + '@' + l.intensity));
+      log('cameras:', scene.cameras.length, scene.cameras.map(c => c.name));
+      log('activeCamera:', scene.activeCamera ? scene.activeCamera.name : 'NULL');
+      log('------------------------');
+    }, 500);
 
-            // Selection outline
-            highlightLayer = new BABYLON.HighlightLayer('__hl', scene, {
-                blurHorizontalSize: 1.5,
-                blurVerticalSize: 1.5,
-            });
-            highlightLayer.innerGlow = false;
-            highlightLayer.outerGlow = true;
-        }
+    vscode.postMessage({ type: 'ready' });
+  }
 
-        function applyCameraRotation() {
-            const { yaw, pitch } = camState;
-            const dir = new BABYLON.Vector3(
-                Math.cos(pitch) * Math.sin(yaw),
-                Math.sin(pitch),
-                Math.cos(pitch) * Math.cos(yaw),
-            );
-            camera.setTarget(camera.position.add(dir));
-        }
+  // ─── Env ──────────────────────────────────────────────────────
+  function buildStartupEnvironment() {
+    // Sun
+    const sun = new BABYLON.DirectionalLight(
+      'defaultSun',
+      new BABYLON.Vector3(-0.5, -1, -0.3).normalize(),
+      scene,
+    );
+    sun.intensity = 1.2;
+    sun.diffuse = new BABYLON.Color3(1, 0.97, 0.9);
+    sun.specular = new BABYLON.Color3(0.5, 0.5, 0.5);
+    sun.position = new BABYLON.Vector3(50, 50, -50);
 
-        // ─── Input ────────────────────────────────────────────────────
-        function setupInput() {
-            window.addEventListener('keydown', (e) => {
-                if (e.target && e.target.tagName === 'INPUT') return;
-                keys.add(e.code);
-                if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') sprint = true;
-                if (e.code === 'AltLeft' || e.code === 'AltRight') slow = true;
-                if (e.code === 'KeyF') focusSelected();
-                if (e.code === 'Escape') vscode.postMessage({ type: 'select', ids: [] });
-            });
-            window.addEventListener('keyup', (e) => {
-                keys.delete(e.code);
-                if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') sprint = false;
-                if (e.code === 'AltLeft' || e.code === 'AltRight') slow = false;
-            });
-            window.addEventListener('blur', () => {
-                keys.clear();
-                sprint = false; slow = false; rmbDown = false;
-            });
+    // Ambient
+    const ambient = new BABYLON.HemisphericLight(
+      'defaultAmbient',
+      new BABYLON.Vector3(0, 1, 0),
+      scene,
+    );
+    ambient.intensity = 0.8;
+    ambient.diffuse = new BABYLON.Color3(0.7, 0.75, 0.9);
+    ambient.groundColor = new BABYLON.Color3(0.2, 0.2, 0.25);
 
-            canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    // Grid
+    try {
+      const grid = BABYLON.MeshBuilder.CreateGround('__grid', { width: 100, height: 100 }, scene);
 
-            canvas.addEventListener('mousedown', (e) => {
-                if (e.button === 2) {
-                    rmbDown = true;
-                    lastMouse = { x: e.clientX, y: e.clientY };
-                    canvas.style.cursor = 'grabbing';
-                }
-            });
-            window.addEventListener('mouseup', (e) => {
-                if (e.button === 2) {
-                    rmbDown = false;
-                    canvas.style.cursor = 'default';
-                }
-            });
-            window.addEventListener('mousemove', (e) => {
-                if (!rmbDown) return;
-                const dx = e.clientX - lastMouse.x;
-                const dy = e.clientY - lastMouse.y;
-                lastMouse = { x: e.clientX, y: e.clientY };
+      if (typeof BABYLON.GridMaterial === 'function') {
+        const gridMat = new BABYLON.GridMaterial('__gridMat', scene);
+        gridMat.majorUnitFrequency = 10;
+        gridMat.minorUnitVisibility = 0.35;
+        gridMat.gridRatio = 1;
+        gridMat.mainColor = new BABYLON.Color3(0.3, 0.33, 0.4);
+        gridMat.lineColor = new BABYLON.Color3(0.5, 0.52, 0.6);
+        gridMat.opacity = 0.98;
+        grid.material = gridMat;
+        log('GridMaterial OK');
+      } else {
+        const fallbackMat = new BABYLON.StandardMaterial('__gridMatFallback', scene);
+        fallbackMat.diffuseColor = new BABYLON.Color3(0.2, 0.22, 0.28);
+        fallbackMat.specularColor = new BABYLON.Color3(0, 0, 0);
+        fallbackMat.emissiveColor = new BABYLON.Color3(0.08, 0.09, 0.12);
+        grid.material = fallbackMat;
+        log('GridMaterial NOT available, using fallback');
+      }
 
-                const sens = 0.0028;
-                camState.yaw -= dx * sens;
-                camState.pitch -= dy * sens;
-                camState.pitch = Math.max(
-                    -Math.PI / 2 + 0.01,
-                    Math.min(Math.PI / 2 - 0.01, camState.pitch),
-                );
-                applyCameraRotation();
-            });
+      grid.isPickable = false;
+      grid.position.y = 0;
+    } catch (err) {
+      log('grid creation failed:', err);
+    }
 
-            canvas.addEventListener('wheel', (e) => {
-                e.preventDefault();
-                const factor = e.deltaY > 0 ? 0.9 : 1.1;
-                camState.baseSpeed = Math.max(0.05, Math.min(20, camState.baseSpeed * factor));
-            }, { passive: false });
-        }
+    // Highlight layer
+    try {
+      highlightLayer = new BABYLON.HighlightLayer('__hl', scene, {
+        blurHorizontalSize: 1.5,
+        blurVerticalSize: 1.5,
+      });
+      highlightLayer.innerGlow = false;
+      highlightLayer.outerGlow = true;
+    } catch (err) {
+      log('highlight layer failed:', err);
+    }
 
-        // ─── Movement ─────────────────────────────────────────────────
-        function updateCameraMovement() {
-            const dt = engine.getDeltaTime() / 1000;
-            const mult = sprint ? camState.sprint : (slow ? camState.slow : 1);
-            const speed = camState.baseSpeed * mult * dt * 60;
+    // Axes
+    const mkAxis = (name, dims, color) => {
+      const box = BABYLON.MeshBuilder.CreateBox(name, dims, scene);
+      const mat = new BABYLON.StandardMaterial(name + '_mat', scene);
+      mat.emissiveColor = color;
+      mat.disableLighting = true;
+      box.material = mat;
+      box.isPickable = false;
+    };
+    mkAxis('__axisX', { width: 3, height: 0.05, depth: 0.05 }, new BABYLON.Color3(1, 0.2, 0.2));
+    mkAxis('__axisY', { width: 0.05, height: 3, depth: 0.05 }, new BABYLON.Color3(0.2, 1, 0.2));
+    mkAxis('__axisZ', { width: 0.05, height: 0.05, depth: 3 }, new BABYLON.Color3(0.3, 0.5, 1));
+  }
 
-            const forward = camera.getDirection(BABYLON.Axis.Z);
-            const right = camera.getDirection(BABYLON.Axis.X);
+  function applyCameraRotation() {
+    const { yaw, pitch } = camState;
+    const dir = new BABYLON.Vector3(
+      Math.cos(pitch) * Math.sin(yaw),
+      Math.sin(pitch),
+      Math.cos(pitch) * Math.cos(yaw),
+    );
+    camera.setTarget(camera.position.add(dir));
+  }
 
-            const move = BABYLON.Vector3.Zero();
-            if (keys.has('KeyW')) move.addInPlace(forward);
-            if (keys.has('KeyS')) move.subtractInPlace(forward);
-            if (keys.has('KeyD')) move.addInPlace(right);
-            if (keys.has('KeyA')) move.subtractInPlace(right);
-            if (keys.has('KeyE')) move.y += 1;
-            if (keys.has('KeyQ')) move.y -= 1;
+  // ─── Look mode (PointerLock) ──────────────────────────────────
+  function enterLookMode() {
+    if (looking) return;
+    looking = true;
+    canvas.classList.add('looking');
+    crosshair.classList.add('active');
+    modeEl.classList.add('active');
 
-            if (move.lengthSquared() > 0) {
-                move.normalize().scaleInPlace(speed);
-                camera.position.addInPlace(move);
-                camState.pos.copyFrom(camera.position);
-            }
-        }
-
-        // ─── Picking ──────────────────────────────────────────────────
-        function setupPicking() {
-            scene.onPointerObservable.add((pi) => {
-                if (pi.type !== BABYLON.PointerEventTypes.POINTERPICK) return;
-                if (pi.event.button !== 0) return;
-                const picked = pi.pickInfo?.pickedMesh;
-                const nodeId = picked ? meshToNodeId.get(picked) : null;
-                vscode.postMessage({ type: 'select', ids: nodeId ? [nodeId] : [] });
-            });
-        }
-
-        function applySelection(ids) {
-            if (!highlightLayer) return;
-            selectedIds = ids || [];
-            highlightLayer.removeAllMeshes();
-            for (const id of selectedIds) {
-                const mesh = nodeIdToMesh.get(id);
-                if (mesh && mesh.getClassName && mesh.getClassName().includes('Mesh')) {
-                    highlightLayer.addMesh(mesh, new BABYLON.Color3(1, 0.6, 0.15));
-                }
-            }
-        }
-
-        function focusSelected() {
-            const id = selectedIds[0];
-            if (!id) return;
-            const mesh = nodeIdToMesh.get(id);
-            if (!mesh) return;
-            const center = mesh.getAbsolutePosition
-                ? mesh.getAbsolutePosition()
-                : BABYLON.Vector3.Zero();
-            const dir = camera.getDirection(BABYLON.Axis.Z);
-            camera.position = center.subtract(dir.scale(8));
-            camState.pos.copyFrom(camera.position);
-        }
-
-        // ─── Scene building ───────────────────────────────────────────
-        function buildNode(nodeData, parentMesh) {
-            const meshComp = (nodeData.components || []).find(c => c.type === 'mesh');
-            const lightComp = (nodeData.components || []).find(c => c.type === 'light');
-            const camComp = (nodeData.components || []).find(c => c.type === 'camera');
-
-            let node = null;
-            let pickableTarget = null;
-
-            if (meshComp) {
-                switch (meshComp.geometry) {
-                    case 'box': node = BABYLON.MeshBuilder.CreateBox(nodeData.id, { size: 1 }, scene); break;
-                    case 'sphere': node = BABYLON.MeshBuilder.CreateSphere(nodeData.id, { diameter: 1 }, scene); break;
-                    case 'plane': node = BABYLON.MeshBuilder.CreatePlane(nodeData.id, { size: 1 }, scene); break;
-                    case 'cylinder': node = BABYLON.MeshBuilder.CreateCylinder(nodeData.id, { height: 1, diameter: 1 }, scene); break;
-                    case 'torus': node = BABYLON.MeshBuilder.CreateTorus(nodeData.id, { diameter: 1, thickness: 0.3 }, scene); break;
-                    default: node = BABYLON.MeshBuilder.CreateBox(nodeData.id, { size: 1 }, scene);
-                }
-                const mat = new BABYLON.StandardMaterial(nodeData.id + '_mat', scene);
-                try {
-                    mat.diffuseColor = BABYLON.Color3.FromHexString(meshComp.material.color || '#6B46C1');
-                } catch {
-                    mat.diffuseColor = new BABYLON.Color3(0.42, 0.27, 0.76);
-                }
-                mat.specularColor = new BABYLON.Color3(0.25, 0.25, 0.25);
-                node.material = mat;
-                pickableTarget = node;
-            } else if (lightComp) {
-                // Represent light as a gizmo sphere (real light comes from startup env or scene-level)
-                node = new BABYLON.TransformNode(nodeData.id, scene);
-                const gizmo = BABYLON.MeshBuilder.CreateSphere(nodeData.id + '_gizmo', { diameter: 0.35 }, scene);
-                const gm = new BABYLON.StandardMaterial(nodeData.id + '_gmat', scene);
-                gm.emissiveColor = new BABYLON.Color3(1, 0.9, 0.4);
-                gm.disableLighting = true;
-                gizmo.material = gm;
-                gizmo.parent = node;
-                pickableTarget = gizmo;
-            } else if (camComp) {
-                node = new BABYLON.TransformNode(nodeData.id, scene);
-                // Camera gizmo (small box wireframe)
-                const gizmo = BABYLON.MeshBuilder.CreateBox(
-                    nodeData.id + '_camGizmo',
-                    { size: 0.5 },
-                    scene,
-                );
-                const gm = new BABYLON.StandardMaterial(nodeData.id + '_cgmat', scene);
-                gm.wireframe = true;
-                gm.emissiveColor = new BABYLON.Color3(0.5, 0.8, 1.0);
-                gm.disableLighting = true;
-                gizmo.material = gm;
-                gizmo.parent = node;
-                pickableTarget = gizmo;
-            } else {
-                node = new BABYLON.TransformNode(nodeData.id, scene);
-            }
-
-            if (pickableTarget) {
-                meshToNodeId.set(pickableTarget, nodeData.id);
-                nodeIdToMesh.set(nodeData.id, pickableTarget);
-            } else if (node) {
-                nodeIdToMesh.set(nodeData.id, node);
-            }
-
-            const t = nodeData.transform;
-            if (t) {
-                node.position.set(t.position.x, t.position.y, t.position.z);
-                node.rotationQuaternion = new BABYLON.Quaternion(
-                    t.rotation.x, t.rotation.y, t.rotation.z, t.rotation.w,
-                );
-                node.scaling.set(t.scale.x, t.scale.y, t.scale.z);
-            }
-
-            if (parentMesh && node) node.parent = parentMesh;
-            for (const child of nodeData.children ?? []) buildNode(child, node);
-        }
-
-        function rebuildScene(data) {
-            if (!scene) return;
-            for (const [, obj] of nodeIdToMesh) {
-                try { obj.dispose(); } catch { }
-            }
-            nodeIdToMesh.clear();
-            for (const child of data.root.children ?? []) buildNode(child, null);
-            hud.innerHTML =
-                '<b>Weaver — ' + data.name + '</b><br/>' +
-                '<span class="k">RMB</span> look &nbsp; <span class="k">WASD</span> move &nbsp; <span class="k">Q/E</span> down/up<br/>' +
-                '<span class="k">Shift</span> sprint &nbsp; <span class="k">Alt</span> slow &nbsp; <span class="k">Wheel</span> speed<br/>' +
-                '<span class="k">LMB</span> select &nbsp; <span class="k">F</span> focus &nbsp; <span class="k">Esc</span> deselect';
-            // re-apply selection
-            applySelection(selectedIds);
-        }
-
-        // ─── Messages ─────────────────────────────────────────────────
-        window.addEventListener('message', (e) => {
-            const msg = e.data;
-            if (msg.type === 'scene:update') {
-                sceneData = msg.payload;
-                if (scene) rebuildScene(sceneData);
-                else setTimeout(() => { if (scene) rebuildScene(sceneData); }, 300);
-            } else if (msg.type === 'selection:update') {
-                applySelection(msg.ids || []);
-            }
+    // درخواست pointer lock
+    if (canvas.requestPointerLock) {
+      const promise = canvas.requestPointerLock();
+      if (promise && promise.catch) {
+        promise.catch(err => {
+          // ممکنه webview اجازه نده — به fallback برمی‌گردیم
+          log('pointerLock rejected, using fallback:', err.message);
         });
+      }
+    }
+  }
 
-        window.addEventListener('load', initBabylon);
-    </script>
+  function exitLookMode() {
+    if (!looking) return;
+    looking = false;
+    canvas.classList.remove('looking');
+    crosshair.classList.remove('active');
+    modeEl.classList.remove('active');
+    if (document.pointerLockElement === canvas) {
+      document.exitPointerLock();
+    }
+  }
+
+  // ─── Input ────────────────────────────────────────────────────
+  function setupInput() {
+    // Keyboard
+    window.addEventListener('keydown', (e) => {
+      if (e.target && e.target.tagName === 'INPUT') return;
+      keys.add(e.code);
+      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') sprint = true;
+      if (e.code === 'AltLeft' || e.code === 'AltRight') slow = true;
+      if (e.code === 'KeyF') focusSelected();
+      if (e.code === 'Escape') {
+        vscode.postMessage({ type: 'select', ids: [] });
+        exitLookMode();
+      }
+    });
+    window.addEventListener('keyup', (e) => {
+      keys.delete(e.code);
+      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') sprint = false;
+      if (e.code === 'AltLeft' || e.code === 'AltRight') slow = false;
+    });
+    window.addEventListener('blur', () => {
+      keys.clear();
+      sprint = false; slow = false;
+      exitLookMode();
+    });
+
+    // جلوگیری از منوی مرورگر روی canvas
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // RMB → enter look mode
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button === 2) {
+        e.preventDefault();
+        enterLookMode();
+      }
+    });
+
+    // Release anywhere → exit look
+    window.addEventListener('mouseup', (e) => {
+      if (e.button === 2) {
+        e.preventDefault();
+        exitLookMode();
+      }
+    });
+
+    // ─── حرکت موس: دو حالت ─────────────────────────────────────
+    // حالت ۱: pointerLock فعال → movementX/Y
+    document.addEventListener('mousemove', (e) => {
+      if (!looking) return;
+      if (document.pointerLockElement !== canvas) return;
+      const dx = e.movementX || 0;
+      const dy = e.movementY || 0;
+      rotateCamera(dx, dy);
+    });
+
+    // حالت ۲: fallback (بدون pointerLock) → اختلاف مختصات
+    canvas.addEventListener('mousemove', (e) => {
+      if (!looking) return;
+      if (document.pointerLockElement === canvas) return;  // مسیر اول کافیه
+      const dx = e.clientX - lastMouse.x;
+      const dy = e.clientY - lastMouse.y;
+      lastMouse = { x: e.clientX, y: e.clientY };
+      rotateCamera(dx, dy);
+    });
+
+    // وقتی pointerLock فعال شد، lastMouse رو همگام کن
+    document.addEventListener('pointerlockchange', () => {
+      if (document.pointerLockElement === canvas) {
+        log('pointerLock acquired');
+      } else {
+        log('pointerLock released');
+      }
+    });
+
+    // Wheel = speed
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const factor = e.deltaY > 0 ? 0.9 : 1.1;
+      camState.baseSpeed = Math.max(0.05, Math.min(20, camState.baseSpeed * factor));
+    }, { passive: false });
+  }
+
+  function rotateCamera(dx, dy) {
+    const sens = 0.0028;
+    camState.yaw -= dx * sens;
+    camState.pitch -= dy * sens;
+    camState.pitch = Math.max(
+      -Math.PI / 2 + 0.01,
+      Math.min(Math.PI / 2 - 0.01, camState.pitch),
+    );
+    applyCameraRotation();
+  }
+
+  // ─── Movement ─────────────────────────────────────────────────
+  function updateCameraMovement() {
+    const dt = engine.getDeltaTime() / 1000;
+    const mult = sprint ? camState.sprint : (slow ? camState.slow : 1);
+    const speed = camState.baseSpeed * mult * dt * 60;
+
+    const forward = camera.getDirection(BABYLON.Axis.Z);
+    const right = camera.getDirection(BABYLON.Axis.X);
+
+    const move = BABYLON.Vector3.Zero();
+    if (keys.has('KeyW')) move.addInPlace(forward);
+    if (keys.has('KeyS')) move.subtractInPlace(forward);
+    if (keys.has('KeyD')) move.addInPlace(right);
+    if (keys.has('KeyA')) move.subtractInPlace(right);
+    if (keys.has('KeyE')) move.y += 1;
+    if (keys.has('KeyQ')) move.y -= 1;
+
+    if (move.lengthSquared() > 0) {
+      move.normalize().scaleInPlace(speed);
+      camera.position.addInPlace(move);
+      camState.pos.copyFrom(camera.position);
+    }
+  }
+
+  // ─── Picking ──────────────────────────────────────────────────
+  function setupPicking() {
+    scene.onPointerObservable.add((pi) => {
+      if (pi.type !== BABYLON.PointerEventTypes.POINTERPICK) return;
+      if (pi.event.button !== 0) return;
+      // اگه در حالت look هستیم، pick نکن
+      if (looking) return;
+      const picked = pi.pickInfo?.pickedMesh;
+      const nodeId = picked ? meshToNodeId.get(picked) : null;
+      vscode.postMessage({ type: 'select', ids: nodeId ? [nodeId] : [] });
+    });
+  }
+
+  function applySelection(ids) {
+    selectedIds = ids || [];
+    if (!highlightLayer) return;
+    highlightLayer.removeAllMeshes();
+    for (const id of selectedIds) {
+      const mesh = nodeIdToMesh.get(id);
+      if (mesh && mesh.getClassName && mesh.getClassName().includes('Mesh')) {
+        highlightLayer.addMesh(mesh, new BABYLON.Color3(1, 0.6, 0.15));
+      }
+    }
+  }
+
+  function focusSelected() {
+    const id = selectedIds[0];
+    if (!id) return;
+    const mesh = nodeIdToMesh.get(id);
+    if (!mesh) return;
+    const center = mesh.getAbsolutePosition
+      ? mesh.getAbsolutePosition()
+      : BABYLON.Vector3.Zero();
+    const dir = camera.getDirection(BABYLON.Axis.Z);
+    camera.position = center.subtract(dir.scale(8));
+    camState.pos.copyFrom(camera.position);
+  }
+
+  // ─── Build node ───────────────────────────────────────────────
+  function buildNode(nodeData, parentMesh) {
+    const meshComp = (nodeData.components || []).find(c => c.type === 'mesh');
+    const lightComp = (nodeData.components || []).find(c => c.type === 'light');
+    const camComp = (nodeData.components || []).find(c => c.type === 'camera');
+
+    let node = null;
+    let pickableTarget = null;
+
+    if (meshComp) {
+      switch (meshComp.geometry) {
+        case 'box': node = BABYLON.MeshBuilder.CreateBox(nodeData.id, { size: 1 }, scene); break;
+        case 'sphere': node = BABYLON.MeshBuilder.CreateSphere(nodeData.id, { diameter: 1 }, scene); break;
+        case 'plane': node = BABYLON.MeshBuilder.CreatePlane(nodeData.id, { size: 1 }, scene); break;
+        case 'cylinder': node = BABYLON.MeshBuilder.CreateCylinder(nodeData.id, { height: 1, diameter: 1 }, scene); break;
+        case 'torus': node = BABYLON.MeshBuilder.CreateTorus(nodeData.id, { diameter: 1, thickness: 0.3 }, scene); break;
+        default: node = BABYLON.MeshBuilder.CreateBox(nodeData.id, { size: 1 }, scene);
+      }
+      const mat = new BABYLON.StandardMaterial(nodeData.id + '_mat', scene);
+      try {
+        mat.diffuseColor = BABYLON.Color3.FromHexString(meshComp.material.color || '#6B46C1');
+      } catch {
+        mat.diffuseColor = new BABYLON.Color3(0.42, 0.27, 0.76);
+      }
+      mat.emissiveColor = mat.diffuseColor.scale(0.15);
+      mat.specularColor = new BABYLON.Color3(0.25, 0.25, 0.25);
+      node.material = mat;
+      pickableTarget = node;
+    } else if (lightComp) {
+      node = new BABYLON.TransformNode(nodeData.id, scene);
+      const gizmo = BABYLON.MeshBuilder.CreateSphere(nodeData.id + '_gizmo', { diameter: 0.35 }, scene);
+      const gm = new BABYLON.StandardMaterial(nodeData.id + '_gmat', scene);
+      gm.emissiveColor = new BABYLON.Color3(1, 0.9, 0.4);
+      gm.disableLighting = true;
+      gizmo.material = gm;
+      gizmo.parent = node;
+      pickableTarget = gizmo;
+    } else if (camComp) {
+      node = new BABYLON.TransformNode(nodeData.id, scene);
+      const gizmo = BABYLON.MeshBuilder.CreateBox(nodeData.id + '_camGizmo', { size: 0.5 }, scene);
+      const gm = new BABYLON.StandardMaterial(nodeData.id + '_cgmat', scene);
+      gm.wireframe = true;
+      gm.emissiveColor = new BABYLON.Color3(0.5, 0.8, 1.0);
+      gm.disableLighting = true;
+      gizmo.material = gm;
+      gizmo.parent = node;
+      pickableTarget = gizmo;
+    } else {
+      node = new BABYLON.TransformNode(nodeData.id, scene);
+    }
+
+    if (pickableTarget) {
+      meshToNodeId.set(pickableTarget, nodeData.id);
+      nodeIdToMesh.set(nodeData.id, pickableTarget);
+    } else if (node) {
+      nodeIdToMesh.set(nodeData.id, node);
+    }
+
+    const t = nodeData.transform;
+    if (t) {
+      node.position.set(t.position.x, t.position.y, t.position.z);
+      node.rotationQuaternion = new BABYLON.Quaternion(
+        t.rotation.x, t.rotation.y, t.rotation.z, t.rotation.w,
+      );
+      node.scaling.set(t.scale.x, t.scale.y, t.scale.z);
+    }
+
+    if (parentMesh && node) node.parent = parentMesh;
+    for (const child of nodeData.children ?? []) buildNode(child, node);
+  }
+
+  function rebuildScene(data) {
+    if (!scene) return;
+    log('rebuilding scene', data.name);
+
+    for (const [, obj] of nodeIdToMesh) {
+      try { obj.dispose(); } catch {}
+    }
+    nodeIdToMesh.clear();
+
+    for (const child of data.root.children ?? []) buildNode(child, null);
+
+    hud.innerHTML =
+      '<b>Weaver — ' + data.name + '</b><br/>' +
+      '<span class="k">RMB</span> look &nbsp; <span class="k">WASD</span> move &nbsp; <span class="k">Q/E</span> down/up<br/>' +
+      '<span class="k">Shift</span> sprint &nbsp; <span class="k">Alt</span> slow &nbsp; <span class="k">Wheel</span> speed<br/>' +
+      '<span class="k">LMB</span> select &nbsp; <span class="k">F</span> focus &nbsp; <span class="k">Esc</span> deselect';
+
+    applySelection(selectedIds);
+    log('scene rebuilt, meshes now:', scene.meshes.length);
+  }
+
+  // ─── Messages ─────────────────────────────────────────────────
+  window.addEventListener('message', (e) => {
+    const msg = e.data;
+    if (msg.type === 'scene:update') {
+      sceneData = msg.payload;
+      if (scene) rebuildScene(sceneData);
+      else setTimeout(() => { if (scene) rebuildScene(sceneData); }, 300);
+    } else if (msg.type === 'selection:update') {
+      applySelection(msg.ids || []);
+    }
+  });
+
+  window.addEventListener('load', initBabylon);
+</script>
 </body>
-
 </html>

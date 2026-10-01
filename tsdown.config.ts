@@ -16,8 +16,8 @@ export default defineConfig({
 		// بعد از اینکه tsdown فایل .cjs رو ساخت، HTMLها رو کپی کن
 		hooks.hookOnce("build:done", () => {
 			mkdirSync("dist/webviews", { recursive: true });
-			cpSync("src/webviews/viewport.html", "dist/webviews/viewport.html");
-			cpSync("src/webviews/inspector.html", "dist/webviews/inspector.html");
+			cpSync("src/webview/viewport.html", "dist/webview/viewport.html");
+			cpSync("src/webview/inspector.html", "dist/webview/inspector.html");
 			console.log("[weaver] webviews copied to dist/webviews/");
 		});
 	},
