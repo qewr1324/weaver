@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none';
+           style-src {{cspSource}} 'unsafe-inline';
+           script-src 'nonce-{{nonce}}';" />
+    <style>
+        :root {
+            color-scheme: dark;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            background: #0D1117;
+            color: #C9D1D9;
+            font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+
+        h3 {
+            margin: 10px 8px 4px;
+            color: #A78BFA;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            font-weight: 600;
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 8px;
+        }
+
+        .row label {
+            width: 14px;
+            color: #A78BFA;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .row input {
+            flex: 1;
+            background: #161B22;
+            border: 1px solid #30363D;
+            color: #C9D1D9;
+            padding: 3px 6px;
+            border-radius: 3px;
+            font: inherit;
+            transition: border-color .15s;
+        }
+
+        .row input:focus {
+            outline: none;
+            border-color: #A78BFA;
+            box-shadow: 0 0 0 1px #A78BFA55;
+        }
+
+        .empty {
+            padding: 24px 12px;
+            text-align: center;
+            color: #6E7681;
+            font-style: italic;
+        }
+
+        .name {
+            padding: 8px 10px;
+            font-weight: 600;
+            color: #FFFFFF;
+            border-bottom: 1px solid #21262D;
+            background: #161B22;
+            font-size: 12px;
+        }
+
+        .name .type {
+            color: #6E7681;
+            font-weight: 400;
+            margin-left: 6px;
+            font-size: 11px;
+        }
+
+        .comp {
+            margin: 8px;
+            border: 1px solid #21262D;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .comp-head {
+            background: #161B22;
+            padding: 5px 8px;
+            font-size: 11px;
+            color: #A78BFA;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .comp-body {
+            padding: 6px 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root">
+        <div class="empty">No selection</div>
+    </div>
+    <script nonce="{{nonce}}">
+        const vscode = acquireVsCodeApi();
+        const root = document.getElementById('root');
+        let current = null;
+
+        const AXES = ['x', 'y', 'z'];
+        const CHANNELS = [
+            { key: 'position', label: 'Position' },
+            { key: 'rotation', label: 'Rotation' },
+            { key: 'scale', label: 'Scale' },
+        ];
+
+        function esc(s) {
+            return String(s).replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[c]);
+        }
+
+        function renderTransform() {
+            let html = '<div class="comp">';
+            html += '<div class="comp-head">Transform</div>';
+            html += '<div class="comp-body">';
+            for (const ch of CHANNELS) {
+                for (const ax of AXES) {
+                    const v = current.transform[ch.key][ax];
+                    const val = typeof v === 'number' ? v.toFixed(3) : '0.000';
+                    html += '<div class="row">' +
+                        '<label>' + ax.toUpperCase() + '</label>' +
+                        '<input type="number" step="0.1" ' +
+                        'data-ch="' + ch.key + '" data-ax="' + ax + '" ' +
+                        'value="' + val + '" />' +
+                        '</div>';
+                }
+            }
+            html += '</div></div>';
+            return html;
+        }
+
+        function renderComponents() {
+            let html = '';
+            for (const c of current.components || []) {
+                const title = c.type.charAt(0).toUpperCase() + c.type.slice(1);
+                html += '<div class="comp">';
+                html += '<div class="comp-head">' + esc(title) + '</div>';
+                html += '<div class="comp-body">';
+                const entries = Object.entries(c).filter(([k]) => k !== 'id' && k !== 'type');
+                for (const [k, v] of entries) {
+                    const display = typeof v === 'object' ? JSON.stringify(v) : String(v);
+                    html += '<div class="row"><label>' + esc(k.charAt(0)) + '</label>' +
+                        '<input type="text" disabled value="' + esc(display) + '" /></div>';
+                }
+                html += '</div></div>';
+            }
+            return html;
+        }
+
+        function render() {
+            if (!current) {
+                root.innerHTML = '<div class="empty">No selection</div>';
+                return;
+            }
+            let html = '<div class="name">' + esc(current.name) +
+                '<span class="type">' + esc(current.id) + '</span></div>';
+            html += renderTransform();
+            html += renderComponents();
+            root.innerHTML = html;
+
+            root.querySelectorAll('input[data-ch]').forEach(inp => {
+                inp.addEventListener('change', () => {
+                    vscode.postMessage({
+                        type: 'update:transform',
+                        nodeId: current.id,
+                        channel: inp.dataset.ch,
+                        axis: inp.dataset.ax,
+                        value: parseFloat(inp.value) || 0,
+                    });
+                });
+            });
+        }
+
+        window.addEventListener('message', (e) => {
+            const msg = e.data;
+            if (msg.type === 'inspect') {
+                current = msg.payload;
+                render();
+            }
+        });
+    </script>
+</body>
+
+</html>

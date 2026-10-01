@@ -1,5 +1,7 @@
 // src/extension.ts — Weaver Engine (single file)
 import * as vscode from "vscode";
+import * as path from "node:path";
+import * as fs from "node:fs";
 
 // ═══════════════════════════════════════════════════════════════
 // CORE LAYER
@@ -404,11 +406,11 @@ const SceneFactory = {
 		light.addComponent({
 			id: nextComponentId(),
 			type: "light",
-			lightType: "hemispheric",
-			intensity: 1,
-			color: "#ffffff",
+			lightType: "directional",
+			intensity: 1.2,
+			color: "#fff5e0",
 		});
-		light.transform.position = vec3(0, 10, 0);
+		light.transform.position = vec3(4, 8, -4);
 		scene.addNode(light);
 
 		const cube = new Node("Cube");
@@ -419,6 +421,16 @@ const SceneFactory = {
 			material: { color: "#6B46C1", metallic: 0.2, roughness: 0.6 },
 		});
 		scene.addNode(cube);
+
+		const sphere = new Node("Sphere");
+		sphere.addComponent({
+			id: nextComponentId(),
+			type: "mesh",
+			geometry: "sphere",
+			material: { color: "#3B82F6", metallic: 0.1, roughness: 0.4 },
+		});
+		sphere.transform.position = vec3(3, 1, 0);
+		scene.addNode(sphere);
 
 		return scene;
 	},
@@ -738,6 +750,24 @@ class SetPropertyCommand<T> implements Command {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// HTML LOADER  (external .html files + nonce/csp substitution)
+// ═══════════════════════════════════════════════════════════════
+
+function loadWebviewHtml(context: vscode.ExtensionContext, webview: vscode.Webview, fileName: "viewport.html" | "inspector.html"): string {
+	const nonce = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+	const uri = vscode.Uri.joinPath(context.extensionUri, "src", "webviews", fileName);
+	let html: string;
+	try {
+		html = fs.readFileSync(uri.fsPath, "utf8");
+	} catch (err) {
+		return `<!DOCTYPE html><html><body style="color:#f66;font-family:monospace;padding:20px">
+      Failed to load ${fileName}: ${String(err)}
+    </body></html>`;
+	}
+	return html.replace(/\{\{nonce\}\}/g, nonce).replace(/\{\{cspSource\}\}/g, webview.cspSource);
+}
+
+// ═══════════════════════════════════════════════════════════════
 // VS CODE INTEGRATION
 // ═══════════════════════════════════════════════════════════════
 
@@ -814,7 +844,7 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 			enableScripts: true,
 			localResourceRoots: [this.context.extensionUri],
 		};
-		panel.webview.html = this.getHtml(panel.webview);
+		panel.webview.html = loadWebviewHtml(this.context, panel.webview, "viewport.html");
 
 		const update = () => {
 			try {
@@ -832,7 +862,13 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		const changeSub = vscode.workspace.onDidChangeTextDocument((e) => {
 			if (e.document.uri.toString() === document.uri.toString()) update();
 		});
-		panel.onDidDispose(() => changeSub.dispose());
+		const selSub = this.editor.selection.bus.on("changed", (ids) => {
+			panel.webview.postMessage({ type: "selection:update", ids });
+		});
+		panel.onDidDispose(() => {
+			changeSub.dispose();
+			selSub();
+		});
 
 		let initialSent = false;
 		panel.webview.onDidReceiveMessage(async (msg) => {
@@ -851,178 +887,6 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 			}
 		});
 	}
-
-	private getHtml(webview: vscode.Webview): string {
-		const nonce = Math.random().toString(36).slice(2);
-		return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8" />
-<meta http-equiv="Content-Security-Policy"
-  content="default-src 'none';
-           style-src ${webview.cspSource} 'unsafe-inline';
-           script-src 'nonce-${nonce}' https://cdn.babylonjs.com 'unsafe-eval';
-           connect-src https://cdn.babylonjs.com;
-           worker-src blob:;" />
-<style>
-  html, body { width:100%; height:100%; margin:0; padding:0; overflow:hidden; background:#0D1117; }
-  #renderCanvas { width:100%; height:100%; display:block; outline:none; touch-action:none; }
-  #hud {
-    position:absolute; top:8px; left:8px; color:#A78BFA;
-    font:12px/1.6 monospace; pointer-events:none;
-    background:rgba(13,17,23,.6); padding:6px 10px; border-radius:4px;
-    z-index:10;
-  }
-  #loading {
-    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-    color:#A78BFA; font:14px monospace; z-index:5;
-  }
-</style>
-</head>
-<body>
-<div id="hud">Weaver Viewport</div>
-<div id="loading">Loading Babylon…</div>
-<canvas id="renderCanvas"></canvas>
-
-<script nonce="${nonce}" src="https://cdn.babylonjs.com/babylon.js"></script>
-<script nonce="${nonce}">
-  const vscode = acquireVsCodeApi();
-  const canvas = document.getElementById('renderCanvas');
-  const hud = document.getElementById('hud');
-  const loading = document.getElementById('loading');
-
-  let engine, scene, camera;
-  let sceneData = null;
-  const nodeIdToMesh = new Map();
-
-  function initBabylon() {
-    console.log('[Weaver] initBabylon called');
-    if (typeof BABYLON === 'undefined') {
-      loading.textContent = 'Failed to load Babylon (offline?)';
-      console.error('[Weaver] BABYLON is undefined');
-      return;
-    }
-    loading.remove();
-
-    canvas.width = canvas.clientWidth || 800;
-    canvas.height = canvas.clientHeight || 600;
-    console.log('[Weaver] canvas size', canvas.width, canvas.height);
-
-    engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
-    scene = new BABYLON.Scene(engine);
-    scene.clearColor = new BABYLON.Color4(0.05, 0.07, 0.09, 1);
-
-    camera = new BABYLON.ArcRotateCamera(
-      'editorCam',
-      -Math.PI / 2,
-      Math.PI / 3,
-      12,
-      BABYLON.Vector3.Zero(),
-      scene
-    );
-    camera.attachControl(canvas, true);
-    camera.wheelDeltaPercentage = 0.02;
-    camera.lowerRadiusLimit = 1;
-    camera.upperRadiusLimit = 500;
-    camera.target = BABYLON.Vector3.Zero();
-    camera.setPosition(new BABYLON.Vector3(6, 6, -6));
-
-    scene.onPointerObservable.add((pi) => {
-      if (pi.type === BABYLON.PointerEventTypes.POINTERPICK) {
-        const picked = pi.pickInfo?.pickedMesh;
-        const nodeId = picked?.metadata?.nodeId;
-        vscode.postMessage({ type: 'select', ids: nodeId ? [nodeId] : [] });
-      }
-    });
-
-    engine.runRenderLoop(() => scene.render());
-    window.addEventListener('resize', () => engine.resize());
-    setTimeout(() => engine.resize(), 100);
-
-    console.log('[Weaver] Babylon ready');
-    vscode.postMessage({ type: 'ready' });
-  }
-
-  function buildNode(nodeData, parentMesh) {
-    const meshComp = (nodeData.components || []).find(c => c.type === 'mesh');
-    const lightComp = (nodeData.components || []).find(c => c.type === 'light');
-    const camComp = (nodeData.components || []).find(c => c.type === 'camera');
-
-    let node = null;
-
-    if (meshComp) {
-      switch (meshComp.geometry) {
-        case 'box': node = BABYLON.MeshBuilder.CreateBox(nodeData.id, { size: 1 }, scene); break;
-        case 'sphere': node = BABYLON.MeshBuilder.CreateSphere(nodeData.id, { diameter: 1 }, scene); break;
-        case 'plane': node = BABYLON.MeshBuilder.CreatePlane(nodeData.id, { size: 1 }, scene); break;
-        case 'cylinder': node = BABYLON.MeshBuilder.CreateCylinder(nodeData.id, { height: 1, diameter: 1 }, scene); break;
-        case 'torus': node = BABYLON.MeshBuilder.CreateTorus(nodeData.id, { diameter: 1, thickness: 0.3 }, scene); break;
-        default: node = BABYLON.MeshBuilder.CreateBox(nodeData.id, { size: 1 }, scene);
-      }
-      const mat = new BABYLON.StandardMaterial(nodeData.id + '_mat', scene);
-      try {
-        mat.diffuseColor = BABYLON.Color3.FromHexString(meshComp.material.color || '#6B46C1');
-      } catch {
-        mat.diffuseColor = new BABYLON.Color3(0.42, 0.27, 0.76);
-      }
-      node.material = mat;
-      node.metadata = { nodeId: nodeData.id };
-      nodeIdToMesh.set(nodeData.id, node);
-    } else if (lightComp) {
-      node = new BABYLON.TransformNode(nodeData.id, scene);
-      if (lightComp.lightType === 'hemispheric') {
-        const l = new BABYLON.HemisphericLight(nodeData.id + '_l', BABYLON.Vector3.Up(), scene);
-        l.intensity = lightComp.intensity ?? 1;
-      } else if (lightComp.lightType === 'directional') {
-        const l = new BABYLON.DirectionalLight(nodeData.id + '_l', new BABYLON.Vector3(-1, -1, -1), scene);
-        l.intensity = lightComp.intensity ?? 1;
-      } else if (lightComp.lightType === 'point') {
-        const l = new BABYLON.PointLight(nodeData.id + '_l', BABYLON.Vector3.Zero(), scene);
-        l.intensity = lightComp.intensity ?? 1;
-      }
-      nodeIdToMesh.set(nodeData.id, node);
-    } else {
-      node = new BABYLON.TransformNode(nodeData.id, scene);
-      nodeIdToMesh.set(nodeData.id, node);
-    }
-
-    const t = nodeData.transform;
-    if (t) {
-      node.position.set(t.position.x, t.position.y, t.position.z);
-      node.rotationQuaternion = new BABYLON.Quaternion(
-        t.rotation.x, t.rotation.y, t.rotation.z, t.rotation.w,
-      );
-      node.scaling.set(t.scale.x, t.scale.y, t.scale.z);
-    }
-
-    if (parentMesh && node) node.parent = parentMesh;
-    for (const child of nodeData.children ?? []) buildNode(child, node);
-  }
-
-  function rebuildScene(data) {
-    if (!scene) return;
-    for (const [, obj] of nodeIdToMesh) obj.dispose();
-    nodeIdToMesh.clear();
-    for (const child of data.root.children ?? []) buildNode(child, null);
-    hud.textContent = 'Weaver Viewport — ' + data.name;
-    console.log('[Weaver] scene rebuilt', data.name);
-  }
-
-  window.addEventListener('message', (e) => {
-    const msg = e.data;
-    console.log('[Weaver] message', msg.type);
-    if (msg.type === 'scene:update') {
-      sceneData = msg.payload;
-      if (scene) rebuildScene(sceneData);
-      else setTimeout(() => { if (scene) rebuildScene(sceneData); }, 300);
-    }
-  });
-
-  window.addEventListener('load', initBabylon);
-</script>
-</body>
-</html>`;
-	}
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1036,8 +900,11 @@ class InspectorProvider implements vscode.WebviewViewProvider {
 	) {}
 
 	resolveWebviewView(view: vscode.WebviewView): void {
-		view.webview.options = { enableScripts: true };
-		view.webview.html = this.getHtml();
+		view.webview.options = {
+			enableScripts: true,
+			localResourceRoots: [this.context.extensionUri],
+		};
+		view.webview.html = loadWebviewHtml(this.context, view.webview, "inspector.html");
 
 		this.editor.selection.bus.on("changed", (ids) => {
 			const id = ids[0];
@@ -1067,262 +934,5 @@ class InspectorProvider implements vscode.WebviewViewProvider {
 				this.editor.bus.emit("scene:mutated", undefined);
 			}
 		});
-	}
-
-	private getHtml(webview: vscode.Webview): string {
-		const nonce = Math.random().toString(36).slice(2);
-		return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8" />
-<meta http-equiv="Content-Security-Policy"
-  content="default-src 'none';
-           style-src ${webview.cspSource} 'unsafe-inline';
-           script-src 'nonce-${nonce}' https://cdn.babylonjs.com 'unsafe-eval';
-           connect-src https://cdn.babylonjs.com;
-           worker-src blob:;" />
-<style>
-  html, body { width:100%; height:100%; margin:0; padding:0; overflow:hidden; background:#0D1117; }
-  #renderCanvas { width:100%; height:100%; display:block; outline:none; touch-action:none; }
-  #hud {
-    position:absolute; top:8px; left:8px; color:#A78BFA;
-    font:12px/1.6 monospace; pointer-events:none;
-    background:rgba(13,17,23,.7); padding:8px 12px; border-radius:4px;
-    z-index:10; line-height:1.8;
-  }
-  #hud b { color:#fff; }
-  #hud .k { color:#6BFF8F; }
-  #loading {
-    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-    color:#A78BFA; font:14px monospace; z-index:5;
-  }
-</style>
-</head>
-<body>
-<div id="hud">
-  <b>Weaver Viewport</b><br/>
-  <span class="k">RMB</span> look &nbsp; <span class="k">WASD</span> move &nbsp; <span class="k">Q/E</span> down/up<br/>
-  <span class="k">Shift</span> sprint &nbsp; <span class="k">Wheel</span> zoom speed
-</div>
-<div id="loading">Loading Babylon…</div>
-<canvas id="renderCanvas"></canvas>
-
-<script nonce="${nonce}" src="https://cdn.babylonjs.com/babylon.js"></script>
-<script nonce="${nonce}">
-  const vscode = acquireVsCodeApi();
-  const canvas = document.getElementById('renderCanvas');
-  const hud = document.getElementById('hud');
-  const loading = document.getElementById('loading');
-
-  let engine, scene, camera;
-  let sceneData = null;
-  const nodeIdToMesh = new Map();
-
-  // ─── Movement state (Unity-style) ─────────────────────────────
-  const keys = new Set();
-  let sprint = false;
-
-  function initBabylon() {
-    console.log('[Weaver] initBabylon called');
-    if (typeof BABYLON === 'undefined') {
-      loading.textContent = 'Failed to load Babylon (offline?)';
-      console.error('[Weaver] BABYLON is undefined');
-      return;
-    }
-    loading.remove();
-
-    canvas.width = canvas.clientWidth || 800;
-    canvas.height = canvas.clientHeight || 600;
-
-    engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
-    scene = new BABYLON.Scene(engine);
-    scene.clearColor = new BABYLON.Color4(0.09, 0.11, 0.14, 1);
-
-    // ─── Free Camera (Unity-style) ──────────────────────────────
-    camera = new BABYLON.FreeCamera(
-      'editorCam',
-      new BABYLON.Vector3(6, 4, -8),
-      scene,
-    );
-    camera.setTarget(BABYLON.Vector3.Zero());
-    camera.speed = 0.3;
-    camera.inertia = 0.7;
-    camera.angularSensibility = 1500;
-    camera.minZ = 0.05;
-    camera.maxZ = 5000;
-    camera.fov = 0.9;
-
-    // Attach only to canvas (we control keys manually for WASD freedom)
-    camera.attachControl(canvas, true);
-
-    // Disable default arrow-key movement (we want WASD only)
-    camera.keysUp = [];
-    camera.keysDown = [];
-    camera.keysLeft = [];
-    camera.keysRight = [];
-
-    // ─── Directional Light (sun) ────────────────────────────────
-    const sun = new BABYLON.DirectionalLight(
-      'defaultSun',
-      new BABYLON.Vector3(-0.6, -1, -0.4).normalize(),
-      scene,
-    );
-    sun.intensity = 1.4;
-    sun.diffuse = new BABYLON.Color3(1, 0.96, 0.88);
-    sun.specular = new BABYLON.Color3(0.5, 0.5, 0.5);
-
-    // Soft ambient fill so shadows aren't pitch black
-    const ambient = new BABYLON.HemisphericLight(
-      'defaultAmbient',
-      new BABYLON.Vector3(0, 1, 0),
-      scene,
-    );
-    ambient.intensity = 0.45;
-    ambient.diffuse = new BABYLON.Color3(0.6, 0.7, 0.9);
-    ambient.groundColor = new BABYLON.Color3(0.15, 0.15, 0.2);
-
-    // ─── Ground grid (visual reference) ─────────────────────────
-    const ground = BABYLON.MeshBuilder.CreateGround(
-      'ground',
-      { width: 40, height: 40 },
-      scene,
-    );
-    const gmat = new BABYLON.StandardMaterial('gmat', scene);
-    gmat.diffuseColor = new BABYLON.Color3(0.15, 0.16, 0.2);
-    gmat.specularColor = new BABYLON.Color3(0, 0, 0);
-    ground.material = gmat;
-    ground.isPickable = false;
-
-    // ─── WASD input (manual, more control than built-in) ────────
-    window.addEventListener('keydown', (e) => {
-      keys.add(e.code);
-      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') sprint = true;
-    });
-    window.addEventListener('keyup', (e) => {
-      keys.delete(e.code);
-      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') sprint = false;
-    });
-    window.addEventListener('blur', () => keys.clear());
-
-    // Prevent context menu on right-click (for RMB look)
-    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-
-    // ─── Per-frame movement ─────────────────────────────────────
-    scene.onBeforeRenderObservable.add(() => {
-      const dt = engine.getDeltaTime() / 1000; // seconds
-      const speed = camera.speed * (sprint ? 4 : 1) * (dt * 60);
-
-      // Forward/backward based on camera yaw
-      const forward = camera.getDirection(BABYLON.Axis.Z);
-      forward.y = 0;
-      forward.normalize();
-      const right = camera.getDirection(BABYLON.Axis.X);
-      right.y = 0;
-      right.normalize();
-
-      const move = BABYLON.Vector3.Zero();
-      if (keys.has('KeyW')) move.addInPlace(forward);
-      if (keys.has('KeyS')) move.subtractInPlace(forward);
-      if (keys.has('KeyD')) move.addInPlace(right);
-      if (keys.has('KeyA')) move.subtractInPlace(right);
-      if (keys.has('KeyE')) move.y += 1;
-      if (keys.has('KeyQ')) move.y -= 1;
-
-      if (move.lengthSquared() > 0) {
-        move.normalize().scaleInPlace(speed);
-        camera.position.addInPlace(move);
-      }
-    });
-
-    // ─── Pointer: RMB to look, LMB to pick ──────────────────────
-    scene.onPointerObservable.add((pi) => {
-      if (pi.type === BABYLON.PointerEventTypes.POINTERPICK && pi.event.button === 0) {
-        const picked = pi.pickInfo?.pickedMesh;
-        const nodeId = picked?.metadata?.nodeId;
-        vscode.postMessage({ type: 'select', ids: nodeId ? [nodeId] : [] });
-      }
-    });
-
-    engine.runRenderLoop(() => scene.render());
-    window.addEventListener('resize', () => engine.resize());
-    setTimeout(() => engine.resize(), 100);
-
-    console.log('[Weaver] Babylon ready');
-    vscode.postMessage({ type: 'ready' });
-  }
-
-  function buildNode(nodeData, parentMesh) {
-    const meshComp = (nodeData.components || []).find(c => c.type === 'mesh');
-    const lightComp = (nodeData.components || []).find(c => c.type === 'light');
-    const camComp = (nodeData.components || []).find(c => c.type === 'camera');
-
-    let node = null;
-
-    if (meshComp) {
-      switch (meshComp.geometry) {
-        case 'box': node = BABYLON.MeshBuilder.CreateBox(nodeData.id, { size: 1 }, scene); break;
-        case 'sphere': node = BABYLON.MeshBuilder.CreateSphere(nodeData.id, { diameter: 1 }, scene); break;
-        case 'plane': node = BABYLON.MeshBuilder.CreatePlane(nodeData.id, { size: 1 }, scene); break;
-        case 'cylinder': node = BABYLON.MeshBuilder.CreateCylinder(nodeData.id, { height: 1, diameter: 1 }, scene); break;
-        case 'torus': node = BABYLON.MeshBuilder.CreateTorus(nodeData.id, { diameter: 1, thickness: 0.3 }, scene); break;
-        default: node = BABYLON.MeshBuilder.CreateBox(nodeData.id, { size: 1 }, scene);
-      }
-      const mat = new BABYLON.StandardMaterial(nodeData.id + '_mat', scene);
-      try {
-        mat.diffuseColor = BABYLON.Color3.FromHexString(meshComp.material.color || '#6B46C1');
-      } catch {
-        mat.diffuseColor = new BABYLON.Color3(0.42, 0.27, 0.76);
-      }
-      mat.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
-      node.material = mat;
-      node.metadata = { nodeId: nodeData.id };
-      nodeIdToMesh.set(nodeData.id, node);
-    } else if (lightComp) {
-      // Scene lights are managed globally; skip for now
-      node = new BABYLON.TransformNode(nodeData.id, scene);
-      nodeIdToMesh.set(nodeData.id, node);
-    } else {
-      node = new BABYLON.TransformNode(nodeData.id, scene);
-      nodeIdToMesh.set(nodeData.id, node);
-    }
-
-    const t = nodeData.transform;
-    if (t) {
-      node.position.set(t.position.x, t.position.y, t.position.z);
-      node.rotationQuaternion = new BABYLON.Quaternion(
-        t.rotation.x, t.rotation.y, t.rotation.z, t.rotation.w,
-      );
-      node.scaling.set(t.scale.x, t.scale.y, t.scale.z);
-    }
-
-    if (parentMesh && node) node.parent = parentMesh;
-    for (const child of nodeData.children ?? []) buildNode(child, node);
-  }
-
-  function rebuildScene(data) {
-    if (!scene) return;
-    for (const [, obj] of nodeIdToMesh) obj.dispose();
-    nodeIdToMesh.clear();
-    for (const child of data.root.children ?? []) buildNode(child, null);
-    hud.innerHTML =
-      '<b>Weaver Viewport — ' + data.name + '</b><br/>' +
-      '<span class="k">RMB</span> look &nbsp; <span class="k">WASD</span> move &nbsp; <span class="k">Q/E</span> down/up<br/>' +
-      '<span class="k">Shift</span> sprint';
-    console.log('[Weaver] scene rebuilt', data.name);
-  }
-
-  window.addEventListener('message', (e) => {
-    const msg = e.data;
-    if (msg.type === 'scene:update') {
-      sceneData = msg.payload;
-      if (scene) rebuildScene(sceneData);
-      else setTimeout(() => { if (scene) rebuildScene(sceneData); }, 300);
-    }
-  });
-
-  window.addEventListener('load', initBabylon);
-</script>
-</body>
-</html>`;
 	}
 }
