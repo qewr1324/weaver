@@ -57,6 +57,18 @@ export class Scene extends Disposable {
 		return null;
 	}
 
+	allNodes(): Node[] {
+		const out: Node[] = [];
+		const visit = (n: Node) => {
+			for (const c of n.children) {
+				out.push(c);
+				visit(c);
+			}
+		};
+		visit(this.root);
+		return out;
+	}
+
 	resolvedConfig(): WeaverConfig | null {
 		const global = getGlobalConfig();
 		if (!global) return null;

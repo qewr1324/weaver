@@ -3,38 +3,57 @@ import { EventBus } from "../../core/event-bus";
 
 export interface Command {
 	readonly label: string;
-	execute(): void;
-	undo(): void;
+	execute(): void | Promise<void>;
+	undo(): void | Promise<void>;
 }
 
 export class CommandStack extends Disposable {
 	private undoStack: Command[] = [];
 	private redoStack: Command[] = [];
 	private maxSize = 200;
+	private executing = false;
 	readonly bus = new EventBus<{ changed: void }>();
 
-	execute(cmd: Command): void {
-		cmd.execute();
-		this.undoStack.push(cmd);
-		if (this.undoStack.length > this.maxSize) this.undoStack.shift();
-		this.redoStack.length = 0;
-		this.bus.emit("changed", undefined);
+	async execute(cmd: Command): Promise<void> {
+		if (this.executing) return;
+		this.executing = true;
+		try {
+			await cmd.execute();
+			this.undoStack.push(cmd);
+			if (this.undoStack.length > this.maxSize) this.undoStack.shift();
+			this.redoStack.length = 0;
+			this.bus.emit("changed", undefined);
+		} finally {
+			this.executing = false;
+		}
 	}
 
-	undo(): void {
+	async undo(): Promise<void> {
+		if (this.executing) return;
 		const cmd = this.undoStack.pop();
 		if (!cmd) return;
-		cmd.undo();
-		this.redoStack.push(cmd);
-		this.bus.emit("changed", undefined);
+		this.executing = true;
+		try {
+			await cmd.undo();
+			this.redoStack.push(cmd);
+			this.bus.emit("changed", undefined);
+		} finally {
+			this.executing = false;
+		}
 	}
 
-	redo(): void {
+	async redo(): Promise<void> {
+		if (this.executing) return;
 		const cmd = this.redoStack.pop();
 		if (!cmd) return;
-		cmd.execute();
-		this.undoStack.push(cmd);
-		this.bus.emit("changed", undefined);
+		this.executing = true;
+		try {
+			await cmd.execute();
+			this.undoStack.push(cmd);
+			this.bus.emit("changed", undefined);
+		} finally {
+			this.executing = false;
+		}
 	}
 
 	clear(): void {

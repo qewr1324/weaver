@@ -1,0 +1,95 @@
+فاز ۱ (۱-۲ هفته) — تثبیت پایه
+
+    □
+
+    اضافه کردن weaver.saveScene command
+    □
+
+    Gizmo → Scene sync (observer روی dragEnd)
+    □
+
+    SceneDocument به عنوان single source of truth
+    □
+
+    Unify مسیرهای transform update (فقط از CommandStack)
+    □
+
+    Delete / Duplicate / Rename commands
+    □
+
+    Hierarchy TreeView
+    □
+
+    Multi-selection (Ctrl+Click + Shift+Click)
+    □
+
+    Zod schema برای WeaverConfig + SceneData
+    □
+
+    Migration framework (v1 → v2 → ...)
+
+فاز ۲ (۲-۳ هفته) — Editor کامل
+
+    □
+
+    Inspector کامل: color picker، vector3 field، enum، checkbox
+    □
+
+    Component add/remove UI
+    □
+
+    Reparent با drag & drop توی Hierarchy
+    □
+
+    Asset panel (filesystem watcher روی assets/)
+    □
+
+    Prefab system
+    □
+
+    Console panel
+    □
+
+    Settings UI (به جای ویرایش دستی JSON)
+    □
+
+    Focus on node (F key توی viewport = frame selected)
+
+فاز ۳ (۳-۴ هفته) — Runtime
+
+    □
+
+    Play/Stop/Pause دکمه‌ها
+    □
+
+    Script runtime با sandbox (Web Worker)
+    □
+
+    Lifecycle hooks: onStart, onUpdate(dt), onDestroy
+    □
+
+    Input system (keyboard/mouse به scriptها)
+    □
+
+    Animation player (اگه Babylon animation group داری)
+    □
+
+    Physics با Havok یا Cannon
+
+فاز ۴ (اختیاری) — Ecosystem
+
+    □
+
+    Asset import wizard (FBX/GLTF → .weave.json)
+    □
+
+    Export به HTML/Electron
+    □
+
+    Plugin API
+    □
+
+    Template gallery
+    □
+
+    Marketplace assets

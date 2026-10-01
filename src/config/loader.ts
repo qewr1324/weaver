@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { log } from "../core/logger";
 import { createDefaultGlobalConfig } from "./defaults";
+import { validateConfig } from "./schema";
 import type { WeaverConfig } from "./types";
 
 const CONFIG_FILENAME = "weaver.config.json";
@@ -30,9 +31,17 @@ export async function ensureGlobalConfig(context: vscode.ExtensionContext): Prom
 
 	try {
 		const raw = await vscode.workspace.fs.readFile(uri);
-		const parsed = JSON.parse(new TextDecoder().decode(raw)) as WeaverConfig;
+		const parsed = JSON.parse(new TextDecoder().decode(raw));
+		const validated = validateConfig(parsed);
+
+		if (!validated.ok) {
+			log.warn("global config invalid, using defaults. errors:", validated.errors);
+			vscode.window.showWarningMessage(`Weaver: config file has ${validated.errors.length} issue(s). Using defaults.`);
+			return createDefaultGlobalConfig();
+		}
+
 		log.info("global config loaded from " + uri.fsPath);
-		return parsed;
+		return validated.data as WeaverConfig;
 	} catch {
 		log.info("global config not found — creating default at " + uri.fsPath);
 		const defaultCfg = createDefaultGlobalConfig();

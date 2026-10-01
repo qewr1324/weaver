@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'none';
-           style-src {{cspSource}} 'unsafe-inline';
-           script-src 'nonce-{{nonce}}';" />
+    style-src {{cspSource}} 'unsafe-inline';
+    script-src 'nonce-{{nonce}}';" />
     <style>
         :root {
             color-scheme: dark;
@@ -21,7 +21,7 @@
         }
 
         h3 {
-            margin: 10px 8px 4px;
+            margin: 12px 8px 4px;
             color: #A78BFA;
             font-size: 11px;
             text-transform: uppercase;
@@ -37,7 +37,7 @@
         }
 
         .row label {
-            width: 14px;
+            width: 16px;
             color: #A78BFA;
             text-align: center;
             font-weight: 600;
@@ -60,6 +60,11 @@
             box-shadow: 0 0 0 1px #A78BFA55;
         }
 
+        .row input[type="color"] {
+            padding: 0;
+            height: 22px;
+        }
+
         .empty {
             padding: 24px 12px;
             text-align: center;
@@ -69,17 +74,35 @@
 
         .name {
             padding: 8px 10px;
-            font-weight: 600;
             color: #FFFFFF;
             border-bottom: 1px solid #21262D;
             background: #161B22;
             font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .name input {
+            flex: 1;
+            background: transparent;
+            border: 1px solid transparent;
+            color: inherit;
+            font: inherit;
+            font-weight: 600;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        .name input:focus {
+            outline: none;
+            border-color: #A78BFA;
+            background: #0D1117;
         }
 
         .name .type {
             color: #6E7681;
             font-weight: 400;
-            margin-left: 6px;
             font-size: 11px;
         }
 
@@ -103,6 +126,16 @@
         .comp-body {
             padding: 6px 4px;
         }
+
+        .multi-badge {
+            margin: 8px;
+            padding: 6px 10px;
+            background: #6B46C1;
+            color: white;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 11px;
+        }
     </style>
 </head>
 
@@ -114,6 +147,8 @@
         const vscode = acquireVsCodeApi();
         const root = document.getElementById('root');
         let current = null;
+        let isMulti = false;
+        let count = 0;
 
         const AXES = ['x', 'y', 'z'];
         const CHANNELS = [
@@ -136,12 +171,12 @@
                 for (const ax of AXES) {
                     const v = current.transform[ch.key][ax];
                     const val = typeof v === 'number' ? v.toFixed(3) : '0.000';
-                    html += '<div class="row">' +
-                        '<label>' + ax.toUpperCase() + '</label>' +
-                        '<input type="number" step="0.1" ' +
-                        'data-ch="' + ch.key + '" data-ax="' + ax + '" ' +
-                        'value="' + val + '" />' +
-                        '</div>';
+                    html += `<div class="row">
+            <label>${ax.toUpperCase()}</label>
+            <input type="number" step="0.1"
+              data-ch="${ch.key}" data-ax="${ax}"
+              value="${val}" />
+          </div>`;
                 }
             }
             html += '</div></div>';
@@ -153,13 +188,15 @@
             for (const c of current.components || []) {
                 const title = c.type.charAt(0).toUpperCase() + c.type.slice(1);
                 html += '<div class="comp">';
-                html += '<div class="comp-head">' + esc(title) + '</div>';
+                html += `<div class="comp-head">${esc(title)}</div>`;
                 html += '<div class="comp-body">';
                 const entries = Object.entries(c).filter(([k]) => k !== 'id' && k !== 'type');
                 for (const [k, v] of entries) {
                     const display = typeof v === 'object' ? JSON.stringify(v) : String(v);
-                    html += '<div class="row"><label>' + esc(k.charAt(0)) + '</label>' +
-                        '<input type="text" disabled value="' + esc(display) + '" /></div>';
+                    html += `<div class="row">
+            <label>${esc(k.charAt(0))}</label>
+            <input type="text" disabled value="${esc(display)}" />
+          </div>`;
                 }
                 html += '</div></div>';
             }
@@ -171,12 +208,22 @@
                 root.innerHTML = '<div class="empty">No selection</div>';
                 return;
             }
-            let html = '<div class="name">' + esc(current.name) +
-                '<span class="type">' + esc(current.id) + '</span></div>';
+
+            let html = '';
+            if (isMulti) {
+                html += `<div class="multi-badge">${count} nodes selected — showing primary</div>`;
+            }
+
+            html += `<div class="name">
+        <input type="text" id="nameInput" value="${esc(current.name)}" />
+        <span class="type">${esc(current.id.slice(0, 12))}</span>
+      </div>`;
+
             html += renderTransform();
             html += renderComponents();
             root.innerHTML = html;
 
+            // transform inputs
             root.querySelectorAll('input[data-ch]').forEach(inp => {
                 inp.addEventListener('change', () => {
                     vscode.postMessage({
@@ -188,12 +235,24 @@
                     });
                 });
             });
+
+            // rename
+            const nameInput = document.getElementById('nameInput');
+            nameInput?.addEventListener('change', () => {
+                vscode.postMessage({
+                    type: 'rename',
+                    nodeId: current.id,
+                    name: nameInput.value,
+                });
+            });
         }
 
         window.addEventListener('message', (e) => {
             const msg = e.data;
             if (msg.type === 'inspect') {
                 current = msg.payload;
+                isMulti = msg.multi || false;
+                count = msg.count || 0;
                 render();
             }
         });

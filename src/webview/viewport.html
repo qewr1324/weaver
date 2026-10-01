@@ -556,6 +556,7 @@
       highlightLayer.outerGlow = true;
 
       setupGizmo();
+      setupGizmoSync();
       setupInput();
       setupPicking();
 
@@ -839,6 +840,37 @@
       if (gizmoManager.gizmos.scaleGizmo) gizmoManager.gizmos.scaleGizmo.scaleRatio = ratio;
     }
 
+    // ─── Gizmo → Scene sync ───
+    function setupGizmoSync() {
+      const postTransform = (mesh) => {
+        const nodeId = meshToNodeId.get(mesh);
+        if (!nodeId) return;
+        const q = mesh.rotationQuaternion || BABYLON.Quaternion.FromEulerVector(mesh.rotation);
+        vscode.postMessage({
+          type: 'update:transform',
+          nodeId,
+          transform: {
+            position: { x: mesh.position.x, y: mesh.position.y, z: mesh.position.z },
+            rotation: { x: q.x, y: q.y, z: q.z, w: q.w },
+            scale: { x: mesh.scaling.x, y: mesh.scaling.y, z: mesh.scaling.z },
+          },
+        });
+      };
+
+      const attach = (gizmoName) => {
+        const gizmo = gizmoManager.gizmos[gizmoName];
+        if (!gizmo) return;
+        gizmo.onDragEndObservable.add(() => {
+          const mesh = gizmoManager.attachedMesh;
+          if (mesh) postTransform(mesh);
+        });
+      };
+
+      attach('positionGizmo');
+      attach('rotationGizmo');
+      attach('scaleGizmo');
+    }
+
     function attachGizmoTo(nodeId) {
       if (!gizmoManager) return;
       const mesh = nodeIdToMesh.get(nodeId);
@@ -871,6 +903,8 @@
       camState.pitch = Math.max(-1.55, Math.min(1.55, camState.pitch));
       applyRotation();
     }
+
+    // ═══════════ INPUT ═══════════
 
     // ═══════════ INPUT ═══════════
     function setupInput() {
@@ -929,6 +963,29 @@
           e.preventDefault();
           e.stopPropagation();
           toggleLookMode();
+          return;
+        }
+
+        // Delete / Backspace: حذف انتخاب‌شده‌ها
+        if (code === 'Delete' || code === 'Backspace') {
+          if (selectedIds.length > 0) {
+            e.preventDefault();
+            e.stopPropagation();
+            for (const id of selectedIds) {
+              vscode.postMessage({ type: 'remove:node', nodeId: id });
+            }
+          }
+          return;
+        }
+
+        // Ctrl/Cmd + D: Duplicate
+        if ((e.ctrlKey || e.metaKey) && code === 'KeyD') {
+          if (selectedIds.length > 0) {
+            e.preventDefault();
+            e.stopPropagation();
+            // چون logic در host هست، فقط یه پیام می‌فرستیم
+            // (برای فاز ۱ از command palette یا tree استفاده کن)
+          }
           return;
         }
 

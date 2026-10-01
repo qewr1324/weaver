@@ -1,4 +1,5 @@
 import type { Component, ComponentType } from "../components";
+import { nextComponentId } from "../components";
 import { Transform } from "../transform";
 import type { TransformData } from "../transform";
 
@@ -75,5 +76,31 @@ export class Node {
 		for (const c of data.components) node.addComponent({ ...c } as Component);
 		for (const childData of data.children) node.addChild(Node.fromJSON(childData));
 		return node;
+	}
+
+	/**
+	 * Deep clone با IDهای جدید برای node و componentها.
+	 * موقعیت رو offset می‌کنه تا روی parent overlap نشه.
+	 */
+	clone(offset = { x: 0.5, y: 0, z: 0.5 }): Node {
+		const cloned = new Node(this.name + " (Copy)");
+		cloned.enabled = this.enabled;
+		cloned.transform.position = {
+			x: this.transform.position.x + offset.x,
+			y: this.transform.position.y + offset.y,
+			z: this.transform.position.z + offset.z,
+		};
+		cloned.transform.rotation = { ...this.transform.rotation };
+		cloned.transform.scale = { ...this.transform.scale };
+
+		for (const c of this.components) {
+			cloned.addComponent({ ...c, id: nextComponentId() } as Component);
+		}
+
+		for (const child of this.children) {
+			cloned.addChild(child.clone({ x: 0, y: 0, z: 0 }));
+		}
+
+		return cloned;
 	}
 }

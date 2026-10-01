@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { SetPropertyCommand } from "../editor/commands";
+import { RenameNodeCommand, SetTransformCommand } from "../editor/commands";
 import type { EditorContext } from "../editor/editor-context";
 import { loadWebviewHtml } from "./html-loader";
 
@@ -16,8 +16,8 @@ export class InspectorProvider implements vscode.WebviewViewProvider {
 		};
 		view.webview.html = loadWebviewHtml(this.context, view.webview, "inspector.html");
 
-		this.editor.selection.bus.on("changed", (ids) => {
-			const id = ids[0];
+		const pushInspect = () => {
+			const id = this.editor.selection.primary;
 			const node = id ? this.editor.scene.findNode(id) : null;
 			view.webview.postMessage({
 				type: "inspect",
@@ -30,19 +30,46 @@ export class InspectorProvider implements vscode.WebviewViewProvider {
 							components: node.components,
 						}
 					: null,
+				multi: this.editor.selection.ids.length > 1,
+				count: this.editor.selection.ids.length,
 			});
+		};
+
+		const selSub = this.editor.selection.bus.on("changed", pushInspect);
+		const primarySub = this.editor.selection.bus.on("primaryChanged", pushInspect);
+
+		view.onDidDispose(() => {
+			selSub();
+			primarySub();
 		});
 
-		view.webview.onDidReceiveMessage((msg) => {
-			if (msg.type === "update:transform") {
-				const node = this.editor.scene.findNode(msg.nodeId);
-				if (!node) return;
-				const { axis, channel, value } = msg;
-				const target = node.transform[channel as "position" | "rotation" | "scale"] as any;
-				const cmd = new SetPropertyCommand<number>(target, axis, value, `Set ${channel}.${axis}`);
-				this.editor.commands.execute(cmd);
-				this.editor.bus.emit("scene:mutated", undefined);
+		view.webview.onDidReceiveMessage(async (msg) => {
+			switch (msg.type) {
+				case "update:transform": {
+					const node = this.editor.scene.findNode(msg.nodeId);
+					if (!node) return;
+					await this.editor.commands.execute(new SetTransformCommand(node, msg.channel, msg.axis, msg.value));
+					break;
+				}
+
+				case "rename": {
+					const node = this.editor.scene.findNode(msg.nodeId);
+					if (!node) return;
+					await this.editor.commands.execute(new RenameNodeCommand(node, msg.name));
+					break;
+				}
+
+				case "toggle:enabled": {
+					const node = this.editor.scene.findNode(msg.nodeId);
+					if (!node) return;
+					node.enabled = !node.enabled;
+					this.editor.bus.emit("scene:mutated", undefined);
+					break;
+				}
 			}
 		});
+
+		// push اولیه
+		pushInspect();
 	}
 }

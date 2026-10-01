@@ -3,7 +3,7 @@
 	"type": "module",
 	"displayName": "Weaver",
 	"description": "🛡️ Weaver - a 3D game editor from TS/JS for 💠 VSCode. ",
-	"version": "0.74.19",
+	"version": "0.74.41",
 	"private": false,
 	"publisher": "GhurbeSABZI",
 	"packageManager": "bun@1.3.14",
@@ -70,6 +70,11 @@
 		"views": {
 			"weaver": [
 				{
+					"id": "weaver.hierarchy",
+					"name": "Hierarchy",
+					"type": "tree"
+				},
+				{
 					"id": "weaver.inspector",
 					"name": "Inspector",
 					"type": "webview"
@@ -79,19 +84,54 @@
 		"commands": [
 			{
 				"command": "weaver.newScene",
-				"title": "Weaver: New Scene"
+				"title": "Weaver: New Scene",
+				"icon": "$(new-file)"
 			},
 			{
 				"command": "weaver.undo",
-				"title": "Weaver: Undo"
+				"title": "Weaver: Undo",
+				"icon": "$(discard)"
 			},
 			{
 				"command": "weaver.redo",
-				"title": "Weaver: Redo"
+				"title": "Weaver: Redo",
+				"icon": "$(redo)"
 			},
 			{
 				"command": "weaver.saveScene",
-				"title": "Weaver: Save Scene"
+				"title": "Weaver: Save Scene",
+				"icon": "$(save)"
+			},
+			{
+				"command": "weaver.deleteSelected",
+				"title": "Weaver: Delete Selected",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "weaver.duplicateSelected",
+				"title": "Weaver: Duplicate Selected",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "weaver.renameSelected",
+				"title": "Weaver: Rename Selected",
+				"icon": "$(edit)"
+			},
+			{
+				"command": "weaver.selectNodeFromTree",
+				"title": "Weaver: Select Node"
+			},
+			{
+				"command": "weaver.openConfig",
+				"title": "Weaver: Open Config"
+			},
+			{
+				"command": "weaver.resetConfig",
+				"title": "Weaver: Reset Config"
+			},
+			{
+				"command": "weaver.revealConfig",
+				"title": "Weaver: Reveal Config"
 			}
 		],
 		"keybindings": [
@@ -106,14 +146,68 @@
 				"key": "ctrl+shift+z",
 				"mac": "cmd+shift+z",
 				"when": "resourceFilename =~ /\\.weave\\.json$/"
+			},
+			{
+				"command": "weaver.saveScene",
+				"key": "ctrl+s",
+				"mac": "cmd+s",
+				"when": "resourceFilename =~ /\\.weave\\.json$/"
+			},
+			{
+				"command": "weaver.deleteSelected",
+				"key": "delete",
+				"when": "focusedView == weaver.hierarchy"
+			},
+			{
+				"command": "weaver.duplicateSelected",
+				"key": "ctrl+d",
+				"mac": "cmd+d",
+				"when": "focusedView == weaver.hierarchy"
 			}
 		],
 		"menus": {
 			"view/title": [
 				{
 					"command": "weaver.newScene",
-					"when": "view == weaver.inspector",
-					"group": "navigation"
+					"when": "view == weaver.hierarchy",
+					"group": "navigation@1"
+				},
+				{
+					"command": "weaver.saveScene",
+					"when": "view == weaver.hierarchy",
+					"group": "navigation@2"
+				},
+				{
+					"command": "weaver.deleteSelected",
+					"when": "view == weaver.hierarchy",
+					"group": "1_modification"
+				},
+				{
+					"command": "weaver.duplicateSelected",
+					"when": "view == weaver.hierarchy",
+					"group": "1_modification"
+				},
+				{
+					"command": "weaver.renameSelected",
+					"when": "view == weaver.hierarchy",
+					"group": "1_modification"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "weaver.renameSelected",
+					"when": "view == weaver.hierarchy && viewItem == weaver.node",
+					"group": "1_modification"
+				},
+				{
+					"command": "weaver.duplicateSelected",
+					"when": "view == weaver.hierarchy && viewItem == weaver.node",
+					"group": "1_modification"
+				},
+				{
+					"command": "weaver.deleteSelected",
+					"when": "view == weaver.hierarchy && viewItem == weaver.node",
+					"group": "1_modification"
 				}
 			]
 		}
@@ -152,5 +246,8 @@
 		"vsxpub": "^0.1.2",
 		"@babylonjs/core": "^7.0.0",
 		"esbuild": "^0.24.0"
+	},
+	"dependencies": {
+		"zod": "^4.6.5"
 	}
 }

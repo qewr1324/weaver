@@ -2,14 +2,17 @@ import * as vscode from "vscode";
 import { ensureGlobalConfig, setGlobalConfig } from "../config/loader";
 import type { WeaverConfig } from "../config/types";
 import { log } from "../core/logger";
-import { AddNodeCommand } from "../editor/commands";
+import { AddNodeCommand, RemoveNodeCommand, SetTransformCommand, SetWholeTransformCommand, type TransformSnapshot } from "../editor/commands";
 import type { EditorContext } from "../editor/editor-context";
+import type { SceneDocument } from "../editor/scene-document";
 import { type Component, nextComponentId } from "../scene/components";
 import { Node } from "../scene/node";
 import { Serializer } from "../scene/serializer";
 import { loadWebviewHtml } from "./html-loader";
 
 export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
+	private docs = new Map<string, SceneDocument>();
+
 	constructor(
 		private readonly context: vscode.ExtensionContext,
 		private readonly editor: EditorContext,
@@ -22,40 +25,65 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		};
 		panel.webview.html = loadWebviewHtml(this.context, panel.webview, "viewport.html");
 
-		const send = () => {
+		// ساخت SceneDocument اولیه
+		const initialScene = Serializer.tryDeserialize(document.getText());
+		if (!initialScene.ok) {
+			panel.webview.postMessage({ type: "error", message: initialScene.error });
+			return;
+		}
+
+		const doc = new SceneDocument(document.uri, initialScene.scene);
+		this.docs.set(document.uri.toString(), doc);
+		this.editor.loadScene(doc.scene);
+
+		const post = (msg: unknown) => {
 			try {
-				const scene = Serializer.deserialize(document.getText());
-				this.editor.loadScene(scene);
-
-				const resolved = scene.resolvedConfig();
-				if (!resolved) {
-					log.warn("global config not ready yet");
-					return;
-				}
-
-				panel.webview.postMessage({
-					type: "scene:update",
-					payload: {
-						...scene.toJSON(),
-						config: resolved,
-					},
-				});
-			} catch (err) {
-				log.error("deserialize failed", err);
+				panel.webview.postMessage(msg);
+			} catch {
+				/* ignore */
 			}
 		};
 
+		const sendScene = () => {
+			const resolved = doc.scene.resolvedConfig();
+			if (!resolved) return;
+			post({
+				type: "scene:update",
+				payload: { ...doc.scene.toJSON(), config: resolved },
+			});
+		};
+
+		// sub: فایل تغییر کرد → scene رو دوباره load کن
 		const changeSub = vscode.workspace.onDidChangeTextDocument((e) => {
-			if (e.document.uri.toString() === document.uri.toString()) send();
+			if (e.document.uri.toString() !== document.uri.toString()) return;
+			// اگه خودمون داریم می‌نویسیم، ignore
+			if (doc.dirty) return;
+			doc.applyFromText(e.document.getText());
+			this.editor.loadScene(doc.scene);
+			sendScene();
 		});
 
+		// sub: selection
 		const selSub = this.editor.selection.bus.on("changed", (ids) => {
-			panel.webview.postMessage({ type: "selection:update", ids });
+			post({ type: "selection:update", ids });
+		});
+
+		// sub: scene mutated → flush به فایل (debounced)
+		let flushTimer: NodeJS.Timeout | null = null;
+		const mutatedSub = this.editor.scene.bus.on("scene:changed", () => {
+			if (flushTimer) clearTimeout(flushTimer);
+			flushTimer = setTimeout(() => {
+				void doc.flushToDocument();
+			}, 150);
 		});
 
 		panel.onDidDispose(() => {
 			changeSub.dispose();
 			selSub();
+			mutatedSub();
+			if (flushTimer) clearTimeout(flushTimer);
+			this.docs.delete(document.uri.toString());
+			doc.dispose();
 		});
 
 		let initialSent = false;
@@ -67,104 +95,70 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 					break;
 
 				case "add:node":
-					await this.handleAddNode(document, msg.payload);
+					await this.handleAddNode(doc, msg.payload);
 					break;
 
-				case "update:transform":
-					this.handleTransformUpdate(msg);
+				case "remove:node":
+					await this.handleRemoveNode(doc, msg.nodeId);
 					break;
 
-				case "config:update":
-					await this.handleConfigUpdate(document, msg.payload, panel);
+				case "update:transform": {
+					// دو حالت: axis/value برای Inspector، یا transform کامل برای Gizmo
+					if (msg.transform) {
+						await this.handleWholeTransform(doc, msg.nodeId, msg.transform);
+					} else {
+						await this.handleAxisTransform(doc, msg.nodeId, msg.channel, msg.axis, msg.value);
+					}
 					break;
+				}
 
 				case "ready":
 					if (initialSent) return;
 					initialSent = true;
 
-					if (!this.editor.scene.resolvedConfig()) {
+					if (!doc.scene.resolvedConfig()) {
 						const cfg = await ensureGlobalConfig(this.context);
 						setGlobalConfig(cfg);
 					}
-					send();
+					sendScene();
 					break;
 			}
 		});
 	}
 
-	private async handleAddNode(document: vscode.TextDocument, data: any): Promise<void> {
-		try {
-			const newNode = new Node(data.name);
+	private async handleAddNode(doc: SceneDocument, data: any): Promise<void> {
+		const newNode = new Node(data.name);
 
-			if (data.transform) {
-				newNode.transform.position = { ...data.transform.position };
-				newNode.transform.rotation = { ...data.transform.rotation };
-				newNode.transform.scale = { ...data.transform.scale };
-			}
-
-			for (const c of data.components ?? []) {
-				const { id: _ignore, ...rest } = c;
-				newNode.addComponent({ id: nextComponentId(), ...rest } as Component);
-			}
-
-			this.editor.commands.execute(new AddNodeCommand(this.editor.scene, newNode));
-
-			const updatedJson = Serializer.serialize(this.editor.scene);
-			const edit = new vscode.WorkspaceEdit();
-			edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), updatedJson);
-			await vscode.workspace.applyEdit(edit);
-
-			this.editor.selection.set([newNode.id]);
-		} catch (err) {
-			log.error("handleAddNode failed", err);
+		if (data.transform) {
+			newNode.transform.position = { ...data.transform.position };
+			newNode.transform.rotation = { ...data.transform.rotation };
+			newNode.transform.scale = { ...data.transform.scale };
 		}
+
+		for (const c of data.components ?? []) {
+			const { id: _ignore, ...rest } = c;
+			newNode.addComponent({ id: nextComponentId(), ...rest } as Component);
+		}
+
+		await this.editor.commands.execute(new AddNodeCommand(this.editor.scene, newNode));
+		this.editor.selection.set([newNode.id]);
 	}
 
-	private handleTransformUpdate(msg: any): void {
-		try {
-			const node = this.editor.scene.findNode(msg.nodeId);
-			if (!node) return;
-
-			const { axis, channel, value } = msg;
-			const target = node.transform[channel as "position" | "rotation" | "scale"] as any;
-
-			if (target && typeof value === "number") {
-				target[axis] = value;
-				this.editor.markDirty(true);
-			}
-		} catch (err) {
-			log.error("handleTransformUpdate failed", err);
-		}
+	private async handleRemoveNode(doc: SceneDocument, nodeId: string): Promise<void> {
+		const node = doc.scene.findNode(nodeId);
+		if (!node) return;
+		await this.editor.commands.execute(new RemoveNodeCommand(doc.scene, node));
 	}
 
-	private async handleConfigUpdate(document: vscode.TextDocument, payload: Partial<WeaverConfig>, panel: vscode.WebviewPanel): Promise<void> {
-		try {
-			this.editor.scene.config = payload;
+	private async handleWholeTransform(doc: SceneDocument, nodeId: string, transform: TransformSnapshot): Promise<void> {
+		const node = doc.scene.findNode(nodeId);
+		if (!node) return;
+		await this.editor.commands.execute(new SetWholeTransformCommand(node, transform));
+	}
 
-			const updatedJson = JSON.stringify(
-				{
-					version: "1.0",
-					name: this.editor.scene.name,
-					config: this.editor.scene.config,
-					root: this.editor.scene.root.toJSON(),
-				},
-				null,
-				2,
-			);
-
-			const edit = new vscode.WorkspaceEdit();
-			edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), updatedJson);
-			await vscode.workspace.applyEdit(edit);
-
-			const resolved = this.editor.scene.resolvedConfig();
-			if (resolved) {
-				panel.webview.postMessage({
-					type: "config:resolved",
-					payload: resolved,
-				});
-			}
-		} catch (err) {
-			log.error("handleConfigUpdate failed", err);
-		}
+	private async handleAxisTransform(doc: SceneDocument, nodeId: string, channel: string, axis: string, value: number): Promise<void> {
+		const node = doc.scene.findNode(nodeId);
+		if (!node || typeof value !== "number") return;
+		await this.editor.commands.execute(new SetTransformCommand(node, channel as any, axis as any, value));
 	}
 }
