@@ -1069,83 +1069,258 @@ class InspectorProvider implements vscode.WebviewViewProvider {
 		});
 	}
 
-	private getHtml(): string {
+	private getHtml(webview: vscode.Webview): string {
 		const nonce = Math.random().toString(36).slice(2);
 		return `<!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8"/>
+<meta charset="UTF-8" />
 <meta http-equiv="Content-Security-Policy"
-  content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';"/>
+  content="default-src 'none';
+           style-src ${webview.cspSource} 'unsafe-inline';
+           script-src 'nonce-${nonce}' https://cdn.babylonjs.com 'unsafe-eval';
+           connect-src https://cdn.babylonjs.com;
+           worker-src blob:;" />
 <style>
-  body { color:#ccc; font:12px/1.5 monospace; padding:10px; background:#0D1117; margin:0; }
-  .empty { opacity:.5; text-align:center; padding:20px 0; }
-  h3 { color:#A78BFA; margin:0 0 8px; font-size:13px; text-transform:uppercase; letter-spacing:1px; }
-  .section { margin-bottom:14px; }
-  .row { display:flex; align-items:center; gap:6px; margin-bottom:4px; }
-  .row label { width:60px; color:#888; }
-  input[type=number] {
-    flex:1; background:#161B22; border:1px solid #30363D; color:#ccc;
-    padding:3px 6px; border-radius:3px; font-family:inherit; font-size:12px;
+  html, body { width:100%; height:100%; margin:0; padding:0; overflow:hidden; background:#0D1117; }
+  #renderCanvas { width:100%; height:100%; display:block; outline:none; touch-action:none; }
+  #hud {
+    position:absolute; top:8px; left:8px; color:#A78BFA;
+    font:12px/1.6 monospace; pointer-events:none;
+    background:rgba(13,17,23,.7); padding:8px 12px; border-radius:4px;
+    z-index:10; line-height:1.8;
   }
-  input[type=number]:focus { outline:none; border-color:#6B46C1; }
-  .axis-x { color:#ff6b6b; }
-  .axis-y { color:#6bff8f; }
-  .axis-z { color:#6b9cff; }
-  .comp { padding:4px 6px; background:#161B22; border-radius:3px; margin-bottom:4px; color:#A78BFA; }
+  #hud b { color:#fff; }
+  #hud .k { color:#6BFF8F; }
+  #loading {
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color:#A78BFA; font:14px monospace; z-index:5;
+  }
 </style>
 </head>
 <body>
-<div id="root"><div class="empty">No selection</div></div>
+<div id="hud">
+  <b>Weaver Viewport</b><br/>
+  <span class="k">RMB</span> look &nbsp; <span class="k">WASD</span> move &nbsp; <span class="k">Q/E</span> down/up<br/>
+  <span class="k">Shift</span> sprint &nbsp; <span class="k">Wheel</span> zoom speed
+</div>
+<div id="loading">Loading Babylon…</div>
+<canvas id="renderCanvas"></canvas>
+
+<script nonce="${nonce}" src="https://cdn.babylonjs.com/babylon.js"></script>
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
-  let current = null;
+  const canvas = document.getElementById('renderCanvas');
+  const hud = document.getElementById('hud');
+  const loading = document.getElementById('loading');
 
-  function numInput(axis, channel, value) {
-    return '<input type="number" step="0.1" data-channel="' + channel + '" data-axis="' + axis + '" value="' + (value ?? 0) + '"/>';
-  }
+  let engine, scene, camera;
+  let sceneData = null;
+  const nodeIdToMesh = new Map();
 
-  function render(payload) {
-    const root = document.getElementById('root');
-    if (!payload) {
-      root.innerHTML = '<div class="empty">No selection</div>';
-      current = null;
+  // ─── Movement state (Unity-style) ─────────────────────────────
+  const keys = new Set();
+  let sprint = false;
+
+  function initBabylon() {
+    console.log('[Weaver] initBabylon called');
+    if (typeof BABYLON === 'undefined') {
+      loading.textContent = 'Failed to load Babylon (offline?)';
+      console.error('[Weaver] BABYLON is undefined');
       return;
     }
-    current = payload;
-    const t = payload.transform;
-    root.innerHTML =
-      '<div class="section"><h3>' + payload.name + '</h3></div>' +
-      '<div class="section"><h3>Transform</h3>' +
-        '<div class="row"><label class="axis-x">Pos X</label>' + numInput('x','position',t.position.x) + '</div>' +
-        '<div class="row"><label class="axis-y">Pos Y</label>' + numInput('y','position',t.position.y) + '</div>' +
-        '<div class="row"><label class="axis-z">Pos Z</label>' + numInput('z','position',t.position.z) + '</div>' +
-        '<div class="row"><label class="axis-x">Scl X</label>' + numInput('x','scale',t.scale.x) + '</div>' +
-        '<div class="row"><label class="axis-y">Scl Y</label>' + numInput('y','scale',t.scale.y) + '</div>' +
-        '<div class="row"><label class="axis-z">Scl Z</label>' + numInput('z','scale',t.scale.z) + '</div>' +
-      '</div>' +
-      '<div class="section"><h3>Components</h3>' +
-        payload.components.map(c => '<div class="comp">' + c.type + '</div>').join('') +
-      '</div>';
+    loading.remove();
 
-    root.querySelectorAll('input[type=number]').forEach(input => {
-      input.addEventListener('change', (e) => {
-        const channel = e.target.dataset.channel;
-        const axis = e.target.dataset.axis;
-        const value = parseFloat(e.target.value) || 0;
-        vscode.postMessage({
-          type: 'update:transform',
-          nodeId: current.id,
-          channel, axis, value,
-        });
-      });
+    canvas.width = canvas.clientWidth || 800;
+    canvas.height = canvas.clientHeight || 600;
+
+    engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+    scene = new BABYLON.Scene(engine);
+    scene.clearColor = new BABYLON.Color4(0.09, 0.11, 0.14, 1);
+
+    // ─── Free Camera (Unity-style) ──────────────────────────────
+    camera = new BABYLON.FreeCamera(
+      'editorCam',
+      new BABYLON.Vector3(6, 4, -8),
+      scene,
+    );
+    camera.setTarget(BABYLON.Vector3.Zero());
+    camera.speed = 0.3;
+    camera.inertia = 0.7;
+    camera.angularSensibility = 1500;
+    camera.minZ = 0.05;
+    camera.maxZ = 5000;
+    camera.fov = 0.9;
+
+    // Attach only to canvas (we control keys manually for WASD freedom)
+    camera.attachControl(canvas, true);
+
+    // Disable default arrow-key movement (we want WASD only)
+    camera.keysUp = [];
+    camera.keysDown = [];
+    camera.keysLeft = [];
+    camera.keysRight = [];
+
+    // ─── Directional Light (sun) ────────────────────────────────
+    const sun = new BABYLON.DirectionalLight(
+      'defaultSun',
+      new BABYLON.Vector3(-0.6, -1, -0.4).normalize(),
+      scene,
+    );
+    sun.intensity = 1.4;
+    sun.diffuse = new BABYLON.Color3(1, 0.96, 0.88);
+    sun.specular = new BABYLON.Color3(0.5, 0.5, 0.5);
+
+    // Soft ambient fill so shadows aren't pitch black
+    const ambient = new BABYLON.HemisphericLight(
+      'defaultAmbient',
+      new BABYLON.Vector3(0, 1, 0),
+      scene,
+    );
+    ambient.intensity = 0.45;
+    ambient.diffuse = new BABYLON.Color3(0.6, 0.7, 0.9);
+    ambient.groundColor = new BABYLON.Color3(0.15, 0.15, 0.2);
+
+    // ─── Ground grid (visual reference) ─────────────────────────
+    const ground = BABYLON.MeshBuilder.CreateGround(
+      'ground',
+      { width: 40, height: 40 },
+      scene,
+    );
+    const gmat = new BABYLON.StandardMaterial('gmat', scene);
+    gmat.diffuseColor = new BABYLON.Color3(0.15, 0.16, 0.2);
+    gmat.specularColor = new BABYLON.Color3(0, 0, 0);
+    ground.material = gmat;
+    ground.isPickable = false;
+
+    // ─── WASD input (manual, more control than built-in) ────────
+    window.addEventListener('keydown', (e) => {
+      keys.add(e.code);
+      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') sprint = true;
     });
+    window.addEventListener('keyup', (e) => {
+      keys.delete(e.code);
+      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') sprint = false;
+    });
+    window.addEventListener('blur', () => keys.clear());
+
+    // Prevent context menu on right-click (for RMB look)
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // ─── Per-frame movement ─────────────────────────────────────
+    scene.onBeforeRenderObservable.add(() => {
+      const dt = engine.getDeltaTime() / 1000; // seconds
+      const speed = camera.speed * (sprint ? 4 : 1) * (dt * 60);
+
+      // Forward/backward based on camera yaw
+      const forward = camera.getDirection(BABYLON.Axis.Z);
+      forward.y = 0;
+      forward.normalize();
+      const right = camera.getDirection(BABYLON.Axis.X);
+      right.y = 0;
+      right.normalize();
+
+      const move = BABYLON.Vector3.Zero();
+      if (keys.has('KeyW')) move.addInPlace(forward);
+      if (keys.has('KeyS')) move.subtractInPlace(forward);
+      if (keys.has('KeyD')) move.addInPlace(right);
+      if (keys.has('KeyA')) move.subtractInPlace(right);
+      if (keys.has('KeyE')) move.y += 1;
+      if (keys.has('KeyQ')) move.y -= 1;
+
+      if (move.lengthSquared() > 0) {
+        move.normalize().scaleInPlace(speed);
+        camera.position.addInPlace(move);
+      }
+    });
+
+    // ─── Pointer: RMB to look, LMB to pick ──────────────────────
+    scene.onPointerObservable.add((pi) => {
+      if (pi.type === BABYLON.PointerEventTypes.POINTERPICK && pi.event.button === 0) {
+        const picked = pi.pickInfo?.pickedMesh;
+        const nodeId = picked?.metadata?.nodeId;
+        vscode.postMessage({ type: 'select', ids: nodeId ? [nodeId] : [] });
+      }
+    });
+
+    engine.runRenderLoop(() => scene.render());
+    window.addEventListener('resize', () => engine.resize());
+    setTimeout(() => engine.resize(), 100);
+
+    console.log('[Weaver] Babylon ready');
+    vscode.postMessage({ type: 'ready' });
+  }
+
+  function buildNode(nodeData, parentMesh) {
+    const meshComp = (nodeData.components || []).find(c => c.type === 'mesh');
+    const lightComp = (nodeData.components || []).find(c => c.type === 'light');
+    const camComp = (nodeData.components || []).find(c => c.type === 'camera');
+
+    let node = null;
+
+    if (meshComp) {
+      switch (meshComp.geometry) {
+        case 'box': node = BABYLON.MeshBuilder.CreateBox(nodeData.id, { size: 1 }, scene); break;
+        case 'sphere': node = BABYLON.MeshBuilder.CreateSphere(nodeData.id, { diameter: 1 }, scene); break;
+        case 'plane': node = BABYLON.MeshBuilder.CreatePlane(nodeData.id, { size: 1 }, scene); break;
+        case 'cylinder': node = BABYLON.MeshBuilder.CreateCylinder(nodeData.id, { height: 1, diameter: 1 }, scene); break;
+        case 'torus': node = BABYLON.MeshBuilder.CreateTorus(nodeData.id, { diameter: 1, thickness: 0.3 }, scene); break;
+        default: node = BABYLON.MeshBuilder.CreateBox(nodeData.id, { size: 1 }, scene);
+      }
+      const mat = new BABYLON.StandardMaterial(nodeData.id + '_mat', scene);
+      try {
+        mat.diffuseColor = BABYLON.Color3.FromHexString(meshComp.material.color || '#6B46C1');
+      } catch {
+        mat.diffuseColor = new BABYLON.Color3(0.42, 0.27, 0.76);
+      }
+      mat.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+      node.material = mat;
+      node.metadata = { nodeId: nodeData.id };
+      nodeIdToMesh.set(nodeData.id, node);
+    } else if (lightComp) {
+      // Scene lights are managed globally; skip for now
+      node = new BABYLON.TransformNode(nodeData.id, scene);
+      nodeIdToMesh.set(nodeData.id, node);
+    } else {
+      node = new BABYLON.TransformNode(nodeData.id, scene);
+      nodeIdToMesh.set(nodeData.id, node);
+    }
+
+    const t = nodeData.transform;
+    if (t) {
+      node.position.set(t.position.x, t.position.y, t.position.z);
+      node.rotationQuaternion = new BABYLON.Quaternion(
+        t.rotation.x, t.rotation.y, t.rotation.z, t.rotation.w,
+      );
+      node.scaling.set(t.scale.x, t.scale.y, t.scale.z);
+    }
+
+    if (parentMesh && node) node.parent = parentMesh;
+    for (const child of nodeData.children ?? []) buildNode(child, node);
+  }
+
+  function rebuildScene(data) {
+    if (!scene) return;
+    for (const [, obj] of nodeIdToMesh) obj.dispose();
+    nodeIdToMesh.clear();
+    for (const child of data.root.children ?? []) buildNode(child, null);
+    hud.innerHTML =
+      '<b>Weaver Viewport — ' + data.name + '</b><br/>' +
+      '<span class="k">RMB</span> look &nbsp; <span class="k">WASD</span> move &nbsp; <span class="k">Q/E</span> down/up<br/>' +
+      '<span class="k">Shift</span> sprint';
+    console.log('[Weaver] scene rebuilt', data.name);
   }
 
   window.addEventListener('message', (e) => {
     const msg = e.data;
-    if (msg.type === 'inspect') render(msg.payload);
+    if (msg.type === 'scene:update') {
+      sceneData = msg.payload;
+      if (scene) rebuildScene(sceneData);
+      else setTimeout(() => { if (scene) rebuildScene(sceneData); }, 300);
+    }
   });
+
+  window.addEventListener('load', initBabylon);
 </script>
 </body>
 </html>`;
