@@ -114,7 +114,6 @@
       padding: 0 4px;
     }
 
-    /* dropdown for add object */
     .tb-dd-wrap {
       position: relative;
     }
@@ -175,8 +174,8 @@
       cursor: default;
     }
 
-    #renderCanvas.looking {
-      cursor: grabbing;
+    #renderCanvas.look-mode {
+      cursor: none;
     }
 
     /* ═══════════ OVERLAYS ═══════════ */
@@ -201,6 +200,10 @@
     #hud .k {
       color: #6BFF8F;
       font-weight: bold;
+    }
+
+    #hud .k.on {
+      color: #FFA500;
     }
 
     #fps {
@@ -236,6 +239,11 @@
       color: #6E7681;
     }
 
+    #status.look {
+      color: #FFA500;
+      font-weight: bold;
+    }
+
     #loading {
       position: absolute;
       inset: 0;
@@ -246,6 +254,61 @@
       font: 14px monospace;
       z-index: 5;
       background: #1a1f2e;
+    }
+
+    /* ─── Look Mode Overlay ─── */
+    #look-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 8;
+      display: none;
+    }
+
+    #look-overlay.active {
+      display: block;
+      box-shadow: inset 0 0 0 2px #FFA500;
+    }
+
+    /* ─── Crosshair (وسط صفحه) ─── */
+    #crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 20px;
+      height: 20px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 9;
+      display: none;
+    }
+
+    #crosshair.active {
+      display: block;
+    }
+
+    #crosshair::before,
+    #crosshair::after {
+      content: '';
+      position: absolute;
+      background: #FFA500;
+      box-shadow: 0 0 4px #FFA50088;
+    }
+
+    #crosshair::before {
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 1.5px;
+      transform: translateX(-50%);
+    }
+
+    #crosshair::after {
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1.5px;
+      transform: translateY(-50%);
     }
   </style>
 </head>
@@ -279,21 +342,30 @@
       <div class="tb-group" id="snapGroup">
         <span class="tb-label">Snap</span>
       </div>
+
+      <div class="tb-group">
+        <button class="tb-btn" id="lookModeBtn" title="Toggle Look Mode (F)">
+          <span class="icon">👁</span>
+          <span class="label">Look</span>
+        </button>
+      </div>
     </div>
 
     <!-- ═══════════ CANVAS ═══════════ -->
     <div id="canvas-wrap">
+      <div id="look-overlay"></div>
+      <div id="crosshair"></div>
       <div id="hud">
         <b>Weaver Viewport</b><br />
-        <span class="k">RMB (hold)</span> look &nbsp; <span class="k">IJKL</span>/<span class="k">Arrows</span>
-        look<br />
+        <span class="k" id="hudLookKey">F</span> toggle look mode &nbsp; <span class="k">IJKL</span>/<span
+          class="k">Arrows</span> look<br />
         <span class="k">WASD</span> move &nbsp; <span class="k">Q/E</span> down/up<br />
         <span class="k">Shift</span> fast &nbsp; <span class="k">Space</span> slow &nbsp; <span class="k">Wheel</span>
         speed<br />
         <span class="k">LMB</span> select &nbsp; <span class="k">Esc</span> deselect
       </div>
       <div id="fps">-- FPS</div>
-      <div id="status" class="off">● RMB to look · WASD to move</div>
+      <div id="status" class="off">● F to look · WASD to move</div>
       <div id="loading">Loading Babylon…</div>
       <canvas id="renderCanvas" tabindex="0"></canvas>
     </div>
@@ -306,6 +378,7 @@
     // ═══════════ DOM ═══════════
     const canvas = document.getElementById('renderCanvas');
     const hud = document.getElementById('hud');
+    const hudLookKey = document.getElementById('hudLookKey');
     const fpsEl = document.getElementById('fps');
     const statusEl = document.getElementById('status');
     const loading = document.getElementById('loading');
@@ -317,6 +390,9 @@
     const refGroup = document.getElementById('refGroup');
     const shaderGroup = document.getElementById('shaderGroup');
     const snapGroup = document.getElementById('snapGroup');
+    const lookModeBtn = document.getElementById('lookModeBtn');
+    const lookOverlay = document.getElementById('look-overlay');
+    const crosshair = document.getElementById('crosshair');
 
     // ═══════════ STATE ═══════════
     let engine, scene, camera, highlightLayer, gizmoManager;
@@ -349,10 +425,9 @@
     let shiftHeld = false;
     let spaceHeld = false;
 
-    // ─── RMB look state ───
-    let rmbHeld = false;
-    let lastMouseX = 0;
-    let lastMouseY = 0;
+    // ─── Look Mode با Pointer Lock ───
+    let lookMode = false;
+    let pointerLocked = false;
     const MOUSE_SENS = 0.0035;
 
     let HOVER_COLOR = new BABYLON.Color3(0.4, 0.75, 1.0);
@@ -360,10 +435,66 @@
 
     function log(...a) { console.log('[Weaver]', ...a); }
 
-    function setStatus(text, active) {
+    function setStatus(text, active, isLook) {
       statusEl.textContent = text;
       statusEl.classList.toggle('off', !active);
+      statusEl.classList.toggle('look', !!isLook);
     }
+
+    function enterLookMode() {
+      if (lookMode) return;
+      lookMode = true;
+      canvas.classList.add('look-mode');
+      lookOverlay.classList.add('active');
+      crosshair.classList.add('active');
+      lookModeBtn.classList.add('active');
+      hudLookKey.classList.add('on');
+      setStatus('● LOOK MODE — press F to exit', true, true);
+
+      // درخواست pointer lock
+      const p = canvas.requestPointerLock?.({ unadjustedMovement: true });
+      if (p && p.catch) {
+        p.catch(() => canvas.requestPointerLock());
+      }
+      log('look mode ON');
+    }
+
+    function exitLookMode() {
+      if (!lookMode) return;
+      lookMode = false;
+      canvas.classList.remove('look-mode');
+      lookOverlay.classList.remove('active');
+      crosshair.classList.remove('active');
+      lookModeBtn.classList.remove('active');
+      hudLookKey.classList.remove('on');
+      setStatus('● F to look · WASD to move', false, false);
+
+      if (pointerLocked) {
+        document.exitPointerLock?.();
+      }
+      log('look mode OFF');
+    }
+
+    function toggleLookMode() {
+      if (lookMode) exitLookMode();
+      else enterLookMode();
+    }
+
+    // ─── Pointer Lock events ───
+    document.addEventListener('pointerlockchange', () => {
+      pointerLocked = document.pointerLockElement === canvas;
+      log('pointerlock', pointerLocked);
+
+      // اگه کاربر با Esc خود مرورگر خارج شد، lookMode رو هم ببند
+      if (lookMode && !pointerLocked) {
+        exitLookMode();
+      }
+    });
+
+    document.addEventListener('pointerlockerror', () => {
+      log('pointerlock error');
+      // اگه pointer lock نشد، بازم lookMode بمون (با mousemove fallback)
+    });
 
     // ═══════════ MESSAGES ═══════════
     window.addEventListener('message', (e) => {
@@ -405,7 +536,6 @@
       const amb = new BABYLON.HemisphericLight('amb', new BABYLON.Vector3(0, 1, 0), scene);
       amb.intensity = 0.8;
 
-      // Grid
       const grid = BABYLON.MeshBuilder.CreateGround('__grid', { width: 100, height: 100 }, scene);
       try {
         const gm = new BABYLON.GridMaterial('__gm', scene);
@@ -525,7 +655,6 @@
 
       const en = config.toolbar.enabled;
 
-      // Add Object
       if (en.addObjects) {
         addObjWrap.style.display = '';
         addObjMenu.innerHTML = '';
@@ -547,7 +676,6 @@
         addObjWrap.style.display = 'none';
       }
 
-      // Transform modes
       if (en.transformModes) {
         transformGroup.style.display = '';
         for (const m of config.toolbar.transformModes || []) {
@@ -559,7 +687,6 @@
         transformGroup.style.display = 'none';
       }
 
-      // Reference modes
       if (en.referenceModes) {
         refGroup.style.display = '';
         for (const m of config.toolbar.referenceModes || []) {
@@ -571,7 +698,6 @@
         refGroup.style.display = 'none';
       }
 
-      // Shader modes
       if (en.shaderModes) {
         shaderGroup.style.display = '';
         for (const m of config.toolbar.shaderModes || []) {
@@ -583,7 +709,6 @@
         shaderGroup.style.display = 'none';
       }
 
-      // Snap
       if (en.snap) {
         snapGroup.style.display = '';
         const snapGridBtn = makeButton('▦', 'Grid', () => toggleSnapGrid(), editor.snapGrid);
@@ -740,7 +865,8 @@
     }
 
     function rotate(dx, dy) {
-      camState.yaw -= dx * MOUSE_SENS;
+      // ── جهت اصلاح شد ──
+      camState.yaw += dx * MOUSE_SENS;
       camState.pitch -= dy * MOUSE_SENS;
       camState.pitch = Math.max(-1.55, Math.min(1.55, camState.pitch));
       applyRotation();
@@ -748,13 +874,9 @@
 
     // ═══════════ INPUT ═══════════
     function setupInput() {
-      // جلوگیری از منوی راست‌کلیک
-      document.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }, { capture: true });
+      document.addEventListener('contextmenu', (e) => e.preventDefault(), { capture: true });
 
-      // ─── Wheel = speed ───
+      // ─── Wheel: توی Look Mode = سرعت هم کار می‌کنه ───
       canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
         camState.baseSpeed *= e.deltaY > 0 ? 0.9 : 1.1;
@@ -762,48 +884,54 @@
         setStatus('● Speed: ' + camState.baseSpeed.toFixed(2), true);
       }, { passive: false });
 
-      // ─── LMB: فوکوس ───
+      // ─── LMB: فوکوس (توی Look Mode کلیک = pick هم می‌کنه که جلوگیری می‌کنیم) ───
       canvas.addEventListener('mousedown', (e) => {
-        if (e.button === 0) canvas.focus();
+        if (e.button === 0 && !lookMode) canvas.focus();
       });
 
-      // ─── RMB: شروع چرخش ───
-      window.addEventListener('mousedown', (e) => {
-        if (e.button !== 2) return;
-        // اگه روی HUD/Toolbar نیستیم
-        if (e.target.closest && e.target.closest('#toolbar')) return;
+      // ─── موس: توی Look Mode با Pointer Lock ───
+      document.addEventListener('mousemove', (e) => {
+        if (!lookMode) return;
+        if (!pointerLocked) return;
+        rotate(e.movementX, e.movementY);
+      });
 
-        e.preventDefault();
-        rmbHeld = true;
-        lastMouseX = e.clientX;
-        lastMouseY = e.clientY;
-        canvas.classList.add('looking');
-        setStatus('● LOOK MODE', true);
-      }, { capture: true });
-
-      // ─── RMB: پایان چرخش ───
-      window.addEventListener('mouseup', (e) => {
-        if (e.button !== 2) return;
-        rmbHeld = false;
-        canvas.classList.remove('looking');
-        setStatus('● RMB to look · WASD to move', false);
-      }, { capture: true });
-
-      // ─── mousemove: چرخش با RMB ───
+      // ─── fallback: اگه Pointer Lock نشد، با اختلاف موقعیت ───
+      let fallbackX = 0, fallbackY = 0;
       window.addEventListener('mousemove', (e) => {
-        if (!rmbHeld) return;
-        const dx = e.clientX - lastMouseX;
-        const dy = e.clientY - lastMouseY;
-        lastMouseX = e.clientX;
-        lastMouseY = e.clientY;
+        if (!lookMode) return;
+        if (pointerLocked) return;
+        const dx = e.clientX - fallbackX;
+        const dy = e.clientY - fallbackY;
+        fallbackX = e.clientX;
+        fallbackY = e.clientY;
         rotate(dx, dy);
       });
+
+      // ─── Look Mode button ───
+      lookModeBtn.addEventListener('click', () => {
+        toggleLookMode();
+      });
+
+      // ─── کلیک روی canvas توی Look Mode: چیزی نکن ───
+      canvas.addEventListener('mousedown', (e) => {
+        if (lookMode) e.preventDefault();
+      }, { capture: true });
 
       // ─── کیبورد ───
       window.addEventListener('keydown', (e) => {
         if (e.target && e.target.tagName === 'INPUT') return;
 
         const code = e.code;
+
+        // F: toggle look mode
+        if (code === 'KeyF') {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleLookMode();
+          return;
+        }
+
         const handled =
           code === 'KeyW' || code === 'KeyA' || code === 'KeyS' || code === 'KeyD' ||
           code === 'KeyQ' || code === 'KeyE' ||
@@ -822,15 +950,19 @@
         if (code === 'ShiftLeft' || code === 'ShiftRight') shiftHeld = true;
         if (code === 'Space') spaceHeld = true;
 
-        // hotkeys (Ctrl+G/R/T)
         if (e.ctrlKey || e.metaKey) {
           if (code === 'KeyG') { setTransformMode('move'); e.preventDefault(); }
           if (code === 'KeyR') { setTransformMode('rotate'); e.preventDefault(); }
           if (code === 'KeyT') { setTransformMode('scale'); e.preventDefault(); }
         }
 
+        // Esc: اگه توی Look Mode هستیم → خروج از Look Mode، وگرنه → deselect
         if (code === 'Escape') {
-          vscode.postMessage({ type: 'select', ids: [] });
+          if (lookMode) {
+            exitLookMode();
+          } else {
+            vscode.postMessage({ type: 'select', ids: [] });
+          }
         }
       }, { capture: true });
 
@@ -853,19 +985,16 @@
         if (code === 'Space') spaceHeld = false;
       }, { capture: true });
 
-      // ─── blur: پاک‌سازی ───
       window.addEventListener('blur', () => {
         keys.clear();
         shiftHeld = false;
         spaceHeld = false;
-        rmbHeld = false;
-        canvas.classList.remove('looking');
       });
     }
 
     // ═══════════ UPDATE CAMERA ═══════════
     function updateCamera(dt) {
-      // ─── چرخش با کیبورد ───
+      // چرخش با IJKL/فلش‌ها
       const lookMult = shiftHeld ? camState.sprintMult : (spaceHeld ? camState.slowMult : 1);
       const lookStep = camState.baseLookSpeed * lookMult * dt;
 
@@ -880,7 +1009,6 @@
         applyRotation();
       }
 
-      // ─── حرکت ───
       if (keys.size === 0) return;
 
       const moveMult = shiftHeld ? camState.sprintMult : (spaceHeld ? camState.slowMult : 1);
@@ -1040,8 +1168,7 @@
       scene.onPointerObservable.add((pi) => {
         if (pi.type !== BABYLON.PointerEventTypes.POINTERMOVE) return;
         if (!scene) return;
-        // اگه RMB پایین باشه، hover رو آپدیت نکن (چون داریم می‌چرخونیم)
-        if (rmbHeld) return;
+        if (lookMode) return;
 
         const pick = scene.pick(scene.pointerX, scene.pointerY, (m) => {
           if (!m || !m.isPickable) return false;
@@ -1062,7 +1189,7 @@
       scene.onPointerObservable.add((pi) => {
         if (pi.type !== BABYLON.PointerEventTypes.POINTERPICK) return;
         if (pi.event.button !== 0) return;
-        if (rmbHeld) return;
+        if (lookMode) return;
 
         const picked = pi.pickInfo?.pickedMesh;
         const nodeId = picked ? meshToNodeId.get(picked) : null;
