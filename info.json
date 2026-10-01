@@ -1,0 +1,2421 @@
+{
+	"java": {
+		"maven": {
+			"name": "pom",
+			"extension": ".xml",
+			"route": "./~",
+			"description": "Maven Project Configuration",
+			"version": {
+				"3.8": "./lib/java/maven/v3.8.ts",
+				"3.9": "./lib/java/maven/v3.9.ts",
+				"4.0": "./lib/java/maven/v4.0.ts"
+			}
+		},
+		"gradle": {
+			"name": "build",
+			"extension": ".gradle",
+			"route": "./~",
+			"description": "Gradle Build Configuration",
+			"version": {
+				"7.6": "./lib/java/gradle/v7.6.ts",
+				"8.0": "./lib/java/gradle/v8.0.ts",
+				"8.4": "./lib/java/gradle/v8.4.ts"
+			}
+		},
+		"jpa": {
+			"name": "persistence",
+			"extension": ".xml",
+			"route": "./src/main/resources/META-INF/~",
+			"description": "JPA Persistence Configuration",
+			"version": {
+				"2.2": "./lib/java/jpa/v2.2.ts",
+				"3.0": "./lib/java/jpa/v3.0.ts",
+				"3.1": "./lib/java/jpa/v3.1.ts",
+				"3.2": "./lib/java/jpa/v3.2.ts"
+			}
+		},
+		"hibernate": {
+			"name": "hibernate.cfg",
+			"extension": ".xml",
+			"route": "./src/main/resources/~",
+			"description": "Hibernate Configuration",
+			"version": {
+				"5.4": "./lib/java/hibernate/v5.4.ts",
+				"5.6": "./lib/java/hibernate/v5.6.ts",
+				"6.0": "./lib/java/hibernate/v6.0.ts",
+				"6.2": "./lib/java/hibernate/v6.2.ts",
+				"6.3": "./lib/java/hibernate/v6.3.ts"
+			}
+		},
+		"spring-boot-yml": {
+			"name": "application",
+			"extension": ".yml",
+			"route": "./src/main/resources/~",
+			"description": "Spring Boot Configuration (YAML)",
+			"version": {
+				"2.7": "./lib/java/spring-boot/v2.7.ts",
+				"3.0": "./lib/java/spring-boot/v3.0.ts",
+				"3.1": "./lib/java/spring-boot/v3.1.ts",
+				"3.2": "./lib/java/spring-boot/v3.2.ts"
+			}
+		},
+		"spring-boot-properties": {
+			"name": "application",
+			"extension": ".properties",
+			"route": "./src/main/resources/~",
+			"description": "Spring Boot Configuration (Properties)",
+			"version": {
+				"2.7": "./lib/java/spring-boot-properties/v2.7.ts",
+				"3.0": "./lib/java/spring-boot-properties/v3.0.ts",
+				"3.1": "./lib/java/spring-boot-properties/v3.1.ts",
+				"3.2": "./lib/java/spring-boot-properties/v3.2.ts"
+			}
+		},
+		"quarkus-yaml": {
+			"name": "application",
+			"extension": ".yaml",
+			"route": "./src/main/resources/~",
+			"description": "Quarkus Configuration (YAML)",
+			"version": {
+				"3.0": "./lib/java/quarkus-yaml/v3.0.ts",
+				"3.2": "./lib/java/quarkus-yaml/v3.2.ts",
+				"3.4": "./lib/java/quarkus-yaml/v3.4.ts"
+			}
+		},
+		"quarkus-properties": {
+			"name": "application",
+			"extension": ".properties",
+			"route": "./src/main/resources/~",
+			"description": "Quarkus Configuration (Properties)",
+			"version": {
+				"3.0": "./lib/java/quarkus-properties/v3.0.ts",
+				"3.2": "./lib/java/quarkus-properties/v3.2.ts",
+				"3.4": "./lib/java/quarkus-properties/v3.4.ts"
+			}
+		},
+		"micronaut-yaml": {
+			"name": "application",
+			"extension": ".yml",
+			"route": "./src/main/resources/~",
+			"description": "Micronaut Configuration (YAML)",
+			"version": {
+				"3.0": "./lib/java/micronaut-yaml/v3.0.ts",
+				"4.0": "./lib/java/micronaut-yaml/v4.0.ts"
+			}
+		},
+		"micronaut-properties": {
+			"name": "application",
+			"extension": ".properties",
+			"route": "./src/main/resources/~",
+			"description": "Micronaut Configuration (Properties)",
+			"version": {
+				"4.0": "./lib/java/micronaut-properties/v4.0.ts"
+			}
+		},
+		"mybatis": {
+			"name": "mybatis-config",
+			"extension": ".xml",
+			"route": "./src/main/resources/~",
+			"description": "MyBatis Configuration",
+			"version": {
+				"3.5": "./lib/java/mybatis/v3.5.ts",
+				"3.0": "./lib/java/mybatis/v3.0.ts"
+			}
+		},
+		"web.xml": {
+			"name": "web",
+			"extension": ".xml",
+			"route": "./src/main/webapp/WEB-INF/~",
+			"description": "Java Web Application Descriptor",
+			"version": {
+				"3.1": "./lib/java/webxml/v3.1.ts",
+				"4.0": "./lib/java/webxml/v4.0.ts",
+				"5.0": "./lib/java/webxml/v5.0.ts"
+			}
+		},
+		"logback": {
+			"name": "logback",
+			"extension": ".xml",
+			"route": "./src/main/resources/~",
+			"description": "Logback Logging Configuration",
+			"version": {
+				"1.2": "./lib/java/logback/v1.2.ts",
+				"1.3": "./lib/java/logback/v1.3.ts",
+				"1.4": "./lib/java/logback/v1.4.ts"
+			}
+		},
+		"log4j2": {
+			"name": "log4j2",
+			"extension": ".xml",
+			"route": "./src/main/resources/~",
+			"description": "Log4j2 Logging Configuration",
+			"version": {
+				"2.17": "./lib/java/log4j2/v2.17.ts",
+				"2.20": "./lib/java/log4j2/v2.20.ts",
+				"2.22": "./lib/java/log4j2/v2.22.ts"
+			}
+		},
+		"liquibase": {
+			"name": "changelog",
+			"extension": ".xml",
+			"route": "./src/main/resources/db/~",
+			"description": "Liquibase Changelog",
+			"version": {
+				"4.20": "./lib/java/liquibase/v4.20.ts",
+				"4.23": "./lib/java/liquibase/v4.23.ts"
+			}
+		},
+		"flyway": {
+			"name": "V1__init",
+			"extension": ".sql",
+			"route": "./src/main/resources/db/migration/~",
+			"description": "Flyway Migration",
+			"version": {
+				"9.0": "./lib/java/flyway/v9.0.ts",
+				"10.0": "./lib/java/flyway/v10.0.ts"
+			}
+		},
+		"docker": {
+			"name": "Dockerfile",
+			"extension": "",
+			"route": "./~",
+			"description": "Docker Configuration for Java",
+			"version": {
+				"openjdk17": "./lib/java/docker/openjdk17.ts",
+				"openjdk21": "./lib/java/docker/openjdk21.ts"
+			}
+		},
+		"docker-compose": {
+			"name": "docker-compose",
+			"extension": ".yml",
+			"route": "./~",
+			"description": "Docker Compose Configuration",
+			"version": {
+				"3.8": "./lib/java/docker-compose/v3.8.ts",
+				"3.9": "./lib/java/docker-compose/v3.9.ts"
+			}
+		},
+		"tomcat": {
+			"name": "server",
+			"extension": ".xml",
+			"route": "./~",
+			"description": "Apache Tomcat Configuration",
+			"version": {
+				"9.0": "./lib/java/tomcat/v9.0.ts",
+				"10.0": "./lib/java/tomcat/v10.0.ts"
+			}
+		},
+		"openapi": {
+			"name": "openapi",
+			"extension": ".yaml",
+			"route": "./src/main/resources/~",
+			"description": "OpenAPI/Swagger Specification",
+			"version": {
+				"3.0": "./lib/java/openapi/v3.0.ts",
+				"3.1": "./lib/java/openapi/v3.1.ts"
+			}
+		},
+		"checkstyle": {
+			"name": "checkstyle",
+			"extension": ".xml",
+			"route": "./~",
+			"description": "Checkstyle Configuration",
+			"version": {
+				"10.0": "./lib/java/checkstyle/v10.0.ts",
+				"10.12": "./lib/java/checkstyle/v10.12.ts"
+			}
+		},
+		"struts": {
+			"name": "struts",
+			"extension": ".xml",
+			"route": "./src/main/resources/~",
+			"description": "Apache Struts Configuration",
+			"version": {
+				"2.5": "./lib/java/struts/v2.5.ts",
+				"6.0": "./lib/java/struts/v6.0.ts"
+			}
+		},
+		"jsf": {
+			"name": "faces-config",
+			"extension": ".xml",
+			"route": "./src/main/webapp/WEB-INF/~",
+			"description": "JavaServer Faces Configuration",
+			"version": {
+				"2.3": "./lib/java/jsf/v2.3.ts",
+				"3.0": "./lib/java/jsf/v3.0.ts"
+			}
+		},
+		"mapstruct": {
+			"name": "mapper-config",
+			"extension": ".xml",
+			"route": "./src/main/resources/~",
+			"description": "MapStruct Mapper Configuration",
+			"version": {
+				"1.5": "./lib/java/mapstruct/v1.5.ts"
+			}
+		},
+		"lombok": {
+			"name": "lombok",
+			"extension": ".config",
+			"route": "./~",
+			"description": "Lombok Configuration",
+			"version": {
+				"1.18": "./lib/java/lombok/v1.18.ts"
+			}
+		},
+		"pmd": {
+			"name": "pmd",
+			"extension": ".xml",
+			"route": "./~",
+			"description": "PMD Static Analysis Configuration",
+			"version": {
+				"6.55": "./lib/java/pmd/v6.55.ts",
+				"7.0": "./lib/java/pmd/v7.0.ts"
+			}
+		},
+		"spotbugs": {
+			"name": "spotbugs",
+			"extension": ".xml",
+			"route": "./~",
+			"description": "SpotBugs Configuration",
+			"version": {
+				"4.8": "./lib/java/spotbugs/v4.8.ts"
+			}
+		},
+		"wildfly": {
+			"name": "standalone",
+			"extension": ".xml",
+			"route": "./~",
+			"description": "WildFly Server Configuration",
+			"version": {
+				"27.0": "./lib/java/wildfly/v27.0.ts"
+			}
+		},
+		"tomcat-context": {
+			"name": "context",
+			"extension": ".xml",
+			"route": "./~",
+			"description": "Tomcat Context Configuration",
+			"version": {
+				"9.0": "./lib/java/tomcat-context/v9.0.ts",
+				"10.0": "./lib/java/tomcat-context/v10.0.ts"
+			}
+		},
+		"graphql-java": {
+			"name": "schema",
+			"extension": ".graphqls",
+			"route": "./src/main/resources/~",
+			"description": "GraphQL Schema for Java",
+			"version": {
+				"20.0": "./lib/java/graphql/v20.0.ts"
+			}
+		},
+		"grpc": {
+			"name": "service",
+			"extension": ".proto",
+			"route": "./src/main/proto/~",
+			"description": "gRPC Proto File",
+			"version": {
+				"1.60": "./lib/java/grpc/v1.60.ts"
+			}
+		},
+		"spring-cloud": {
+			"name": "bootstrap",
+			"extension": ".yml",
+			"route": "./src/main/resources/~",
+			"description": "Spring Cloud Bootstrap Configuration",
+			"version": {
+				"2022": "./lib/java/spring-cloud/v2022.ts",
+				"2023": "./lib/java/spring-cloud/v2023.ts"
+			}
+		},
+		"graalvm": {
+			"name": "native-image",
+			"extension": ".properties",
+			"route": "./src/main/resources/META-INF/native-image/~",
+			"description": "GraalVM Native Image Configuration",
+			"version": {
+				"21": "./lib/java/graalvm/v21.ts"
+			}
+		},
+		"helidon": {
+			"name": "microprofile-config",
+			"extension": ".properties",
+			"route": "./src/main/resources/META-INF/~",
+			"description": "Helidon MicroProfile Configuration",
+			"version": {
+				"4.0": "./lib/java/helidon/v4.0.ts"
+			}
+		},
+		"vertx": {
+			"name": "verticle-config",
+			"extension": ".json",
+			"route": "./src/main/resources/~",
+			"description": "Vert.x Verticle Configuration",
+			"version": {
+				"4.5": "./lib/java/vertx/v4.5.ts"
+			}
+		},
+		"javafx-fxml": {
+			"name": "scene",
+			"extension": ".fxml",
+			"route": "./src/main/resources/~",
+			"description": "JavaFX FXML Configuration",
+			"version": {
+				"21": "./lib/java/javafx-fxml/v21.ts"
+			}
+		}
+	},
+	"javascript": {
+		"package": {
+			"name": "package",
+			"extension": ".json",
+			"route": "./~",
+			"description": "Node.js Package Configuration",
+			"version": {
+				"2.0": "./lib/javascript/package/v2.0.ts",
+				"2.1": "./lib/javascript/package/v2.1.ts"
+			}
+		},
+		"tsconfig": {
+			"name": "tsconfig",
+			"extension": ".json",
+			"route": "./~",
+			"description": "TypeScript Configuration",
+			"version": {
+				"5.0": "./lib/javascript/tsconfig/v5.0.ts",
+				"5.2": "./lib/javascript/tsconfig/v5.2.ts",
+				"5.3": "./lib/javascript/tsconfig/v5.3.ts"
+			}
+		},
+		"nextjs": {
+			"name": "next.config",
+			"extension": ".js",
+			"route": "./~",
+			"description": "Next.js Configuration",
+			"version": {
+				"13": "./lib/javascript/nextjs/v13.ts",
+				"14": "./lib/javascript/nextjs/v14.ts"
+			}
+		},
+		"nuxt": {
+			"name": "nuxt.config",
+			"extension": ".js",
+			"route": "./~",
+			"description": "Nuxt.js Configuration",
+			"version": {
+				"3.0": "./lib/javascript/nuxt/v3.0.ts",
+				"3.8": "./lib/javascript/nuxt/v3.8.ts"
+			}
+		},
+		"react": {
+			"name": "App",
+			"extension": ".jsx",
+			"route": "./src/~",
+			"description": "React Boilerplate",
+			"version": {
+				"18": "./lib/javascript/react/v18.ts",
+				"19": "./lib/javascript/react/v19.ts"
+			}
+		},
+		"vue": {
+			"name": "vue.config",
+			"extension": ".js",
+			"route": "./~",
+			"description": "Vue Configuration",
+			"version": {
+				"3.0": "./lib/javascript/vue/v3.0.ts",
+				"3.3": "./lib/javascript/vue/v3.3.ts"
+			}
+		},
+		"eslint": {
+			"name": ".eslintrc",
+			"extension": ".json",
+			"route": "./~",
+			"description": "ESLint Configuration",
+			"version": {
+				"8.0": "./lib/javascript/eslint/v8.0.ts",
+				"9.0": "./lib/javascript/eslint/v9.0.ts"
+			}
+		},
+		"prettier": {
+			"name": ".prettierrc",
+			"extension": ".json",
+			"route": "./~",
+			"description": "Prettier Configuration",
+			"version": {
+				"2.8": "./lib/javascript/prettier/v2.8.ts",
+				"3.0": "./lib/javascript/prettier/v3.0.ts",
+				"3.1": "./lib/javascript/prettier/v3.1.ts"
+			}
+		},
+		"webpack": {
+			"name": "webpack.config",
+			"extension": ".js",
+			"route": "./~",
+			"description": "Webpack Configuration",
+			"version": {
+				"5.0": "./lib/javascript/webpack/v5.0.ts",
+				"5.89": "./lib/javascript/webpack/v5.89.ts"
+			}
+		},
+		"vite": {
+			"name": "vite.config",
+			"extension": ".js",
+			"route": "./~",
+			"description": "Vite Configuration",
+			"version": {
+				"4.0": "./lib/javascript/vite/v4.0.ts",
+				"5.0": "./lib/javascript/vite/v5.0.ts"
+			}
+		},
+		"tailwind": {
+			"name": "tailwind.config",
+			"extension": ".js",
+			"route": "./~",
+			"description": "Tailwind CSS Configuration",
+			"version": {
+				"3.0": "./lib/javascript/tailwind/v3.0.ts",
+				"3.3": "./lib/javascript/tailwind/v3.3.ts"
+			}
+		},
+		"jest": {
+			"name": "jest.config",
+			"extension": ".js",
+			"route": "./~",
+			"description": "Jest Testing Configuration",
+			"version": {
+				"29": "./lib/javascript/jest/v29.ts",
+				"30": "./lib/javascript/jest/v30.ts"
+			}
+		},
+		"vitest": {
+			"name": "vitest.config",
+			"extension": ".ts",
+			"route": "./~",
+			"description": "Vitest Configuration",
+			"version": {
+				"1.0": "./lib/javascript/vitest/v1.0.ts",
+				"1.2": "./lib/javascript/vitest/v1.2.ts"
+			}
+		},
+		"cypress": {
+			"name": "cypress.config",
+			"extension": ".js",
+			"route": "./~",
+			"description": "Cypress E2E Testing Configuration",
+			"version": {
+				"12": "./lib/javascript/cypress/v12.ts",
+				"13": "./lib/javascript/cypress/v13.ts"
+			}
+		},
+		"prisma": {
+			"name": "schema",
+			"extension": ".prisma",
+			"route": "./prisma/~",
+			"description": "Prisma ORM Schema",
+			"version": {
+				"5.0": "./lib/javascript/prisma/v5.0.ts",
+				"5.7": "./lib/javascript/prisma/v5.7.ts"
+			}
+		},
+		"typeorm": {
+			"name": "ormconfig",
+			"extension": ".json",
+			"route": "./~",
+			"description": "TypeORM Configuration",
+			"version": {
+				"0.3": "./lib/javascript/typeorm/v0.3.ts"
+			}
+		},
+		"babel": {
+			"name": "babel.config",
+			"extension": ".js",
+			"route": "./~",
+			"description": "Babel Configuration",
+			"version": {
+				"7.0": "./lib/javascript/babel/v7.0.ts"
+			}
+		},
+		"postcss": {
+			"name": "postcss.config",
+			"extension": ".js",
+			"route": "./~",
+			"description": "PostCSS Configuration",
+			"version": {
+				"8.0": "./lib/javascript/postcss/v8.0.ts"
+			}
+		},
+		"env": {
+			"name": ".env",
+			"extension": "",
+			"route": "./~",
+			"description": "Environment Variables",
+			"version": {
+				"basic": "./lib/javascript/env/basic.ts",
+				"advanced": "./lib/javascript/env/advanced.ts"
+			}
+		},
+		"docker": {
+			"name": "Dockerfile",
+			"extension": "",
+			"route": "./~",
+			"description": "Docker for Node.js",
+			"version": {
+				"node18": "./lib/javascript/docker/node18.ts",
+				"node20": "./lib/javascript/docker/node20.ts"
+			}
+		},
+		"nginx": {
+			"name": "nginx",
+			"extension": ".conf",
+			"route": "./~",
+			"description": "Nginx Configuration for Node.js",
+			"version": {
+				"1.24": "./lib/javascript/nginx/v1.24.ts",
+				"1.25": "./lib/javascript/nginx/v1.25.ts"
+			}
+		},
+		"gatsby": {
+			"name": "gatsby-config",
+			"extension": ".js",
+			"route": "./~",
+			"description": "Gatsby Configuration",
+			"version": {
+				"5.0": "./lib/javascript/gatsby/v5.0.ts"
+			}
+		},
+		"svelte": {
+			"name": "svelte.config",
+			"extension": ".js",
+			"route": "./~",
+			"description": "Svelte Configuration",
+			"version": {
+				"4.0": "./lib/javascript/svelte/v4.0.ts"
+			}
+		},
+		"astro": {
+			"name": "astro.config",
+			"extension": ".mjs",
+			"route": "./~",
+			"description": "Astro Configuration",
+			"version": {
+				"4.0": "./lib/javascript/astro/v4.0.ts"
+			}
+		},
+		"remix": {
+			"name": "remix.config",
+			"extension": ".js",
+			"route": "./~",
+			"description": "Remix Configuration",
+			"version": {
+				"2.0": "./lib/javascript/remix/v2.0.ts"
+			}
+		},
+		"fastify": {
+			"name": "server",
+			"extension": ".js",
+			"route": "./src/~",
+			"description": "Fastify Server Configuration",
+			"version": {
+				"4.0": "./lib/javascript/fastify/v4.0.ts"
+			}
+		},
+		"koa": {
+			"name": "app",
+			"extension": ".js",
+			"route": "./src/~",
+			"description": "Koa Application Configuration",
+			"version": {
+				"2.0": "./lib/javascript/koa/v2.0.ts"
+			}
+		},
+		"rollup": {
+			"name": "rollup.config",
+			"extension": ".js",
+			"route": "./~",
+			"description": "Rollup Configuration",
+			"version": {
+				"4.0": "./lib/javascript/rollup/v4.0.ts"
+			}
+		},
+		"parcel": {
+			"name": ".parcelrc",
+			"extension": "",
+			"route": "./~",
+			"description": "Parcel Configuration",
+			"version": {
+				"2.0": "./lib/javascript/parcel/v2.0.ts"
+			}
+		},
+		"playwright": {
+			"name": "playwright.config",
+			"extension": ".ts",
+			"route": "./~",
+			"description": "Playwright Testing Configuration",
+			"version": {
+				"1.40": "./lib/javascript/playwright/v1.40.ts"
+			}
+		},
+		"storybook": {
+			"name": "main",
+			"extension": ".js",
+			"route": "./.storybook/~",
+			"description": "Storybook Configuration",
+			"version": {
+				"7.0": "./lib/javascript/storybook/v7.0.ts"
+			}
+		},
+		"stylelint": {
+			"name": ".stylelintrc",
+			"extension": ".json",
+			"route": "./~",
+			"description": "Stylelint Configuration",
+			"version": {
+				"15.0": "./lib/javascript/stylelint/v15.0.ts"
+			}
+		},
+		"graphql-codegen": {
+			"name": "codegen",
+			"extension": ".yml",
+			"route": "./~",
+			"description": "GraphQL Code Generator Configuration",
+			"version": {
+				"5.0": "./lib/javascript/graphql-codegen/v5.0.ts"
+			}
+		},
+		"apollo": {
+			"name": "apollo.config",
+			"extension": ".js",
+			"route": "./~",
+			"description": "Apollo GraphQL Configuration",
+			"version": {
+				"4.0": "./lib/javascript/apollo/v4.0.ts"
+			}
+		},
+		"sequelize": {
+			"name": ".sequelizerc",
+			"extension": "",
+			"route": "./~",
+			"description": "Sequelize Configuration",
+			"version": {
+				"6.0": "./lib/javascript/sequelize/v6.0.ts"
+			}
+		},
+		"drizzle": {
+			"name": "drizzle.config",
+			"extension": ".ts",
+			"route": "./~",
+			"description": "Drizzle ORM Configuration",
+			"version": {
+				"0.29": "./lib/javascript/drizzle/v0.29.ts"
+			}
+		},
+		"socketio": {
+			"name": "server",
+			"extension": ".js",
+			"route": "./src/~",
+			"description": "Socket.io Server Configuration",
+			"version": {
+				"4.0": "./lib/javascript/socketio/v4.0.ts"
+			}
+		},
+		"pm2": {
+			"name": "ecosystem.config",
+			"extension": ".js",
+			"route": "./~",
+			"description": "PM2 Process Manager Configuration",
+			"version": {
+				"5.0": "./lib/javascript/pm2/v5.0.ts"
+			}
+		},
+		"nx": {
+			"name": "nx",
+			"extension": ".json",
+			"route": "./~",
+			"description": "NX Monorepo Configuration",
+			"version": {
+				"17.0": "./lib/javascript/nx/v17.0.ts"
+			}
+		},
+		"angular": {
+			"name": "angular",
+			"extension": ".json",
+			"route": "./~",
+			"description": "Angular Workspace Configuration",
+			"version": {
+				"17": "./lib/javascript/angular/v17.ts"
+			}
+		},
+		"sveltekit": {
+			"name": "svelte.config",
+			"extension": ".js",
+			"route": "./~",
+			"description": "SvelteKit Configuration",
+			"version": {
+				"2.0": "./lib/javascript/sveltekit/v2.0.ts"
+			}
+		},
+		"solidjs": {
+			"name": "vite.config",
+			"extension": ".ts",
+			"route": "./~",
+			"description": "Solid.js Vite Configuration",
+			"version": {
+				"1.0": "./lib/javascript/solidjs/v1.0.ts"
+			}
+		},
+		"qwik": {
+			"name": "qwik.config",
+			"extension": ".ts",
+			"route": "./~",
+			"description": "Qwik Configuration",
+			"version": {
+				"1.0": "./lib/javascript/qwik/v1.0.ts"
+			}
+		},
+		"stencil": {
+			"name": "stencil.config",
+			"extension": ".ts",
+			"route": "./~",
+			"description": "Stencil Component Configuration",
+			"version": {
+				"4.0": "./lib/javascript/stencil/v4.0.ts"
+			}
+		},
+		"ember": {
+			"name": "ember-cli-build",
+			"extension": ".js",
+			"route": "./~",
+			"description": "Ember.js Build Configuration",
+			"version": {
+				"5.0": "./lib/javascript/ember/v5.0.ts"
+			}
+		},
+		"electron-builder": {
+			"name": "electron-builder",
+			"extension": ".yml",
+			"route": "./~",
+			"description": "Electron Builder Configuration",
+			"version": {
+				"24.0": "./lib/javascript/electron-builder/v24.0.ts"
+			}
+		},
+		"gulp": {
+			"name": "gulpfile",
+			"extension": ".js",
+			"route": "./~",
+			"description": "Gulp Task Runner Configuration",
+			"version": {
+				"5.0": "./lib/javascript/gulp/v5.0.ts"
+			}
+		},
+		"grunt": {
+			"name": "Gruntfile",
+			"extension": ".js",
+			"route": "./~",
+			"description": "Grunt Task Runner Configuration",
+			"version": {
+				"1.6": "./lib/javascript/grunt/v1.6.ts"
+			}
+		},
+		"turbo": {
+			"name": "turbo",
+			"extension": ".json",
+			"route": "./~",
+			"description": "Turborepo Configuration",
+			"version": {
+				"1.0": "./lib/javascript/turbo/v1.0.ts"
+			}
+		},
+		"lerna": {
+			"name": "lerna",
+			"extension": ".json",
+			"route": "./~",
+			"description": "Lerna Monorepo Configuration",
+			"version": {
+				"7.0": "./lib/javascript/lerna/v7.0.ts"
+			}
+		},
+		"firebase": {
+			"name": "firebase",
+			"extension": ".json",
+			"route": "./~",
+			"description": "Firebase Configuration",
+			"version": {
+				"latest": "./lib/javascript/firebase/latest.ts"
+			}
+		},
+		"firestore-rules": {
+			"name": "firestore.rules",
+			"extension": "",
+			"route": "./~",
+			"description": "Firebase Firestore Security Rules",
+			"version": {
+				"v2": "./lib/javascript/firestore-rules/v2.ts"
+			}
+		},
+		"supabase": {
+			"name": "config",
+			"extension": ".toml",
+			"route": "./supabase/~",
+			"description": "Supabase Configuration",
+			"version": {
+				"latest": "./lib/javascript/supabase/latest.ts"
+			}
+		}
+	},
+	"typescript": {
+		"nestjs": {
+			"name": "main",
+			"extension": ".ts",
+			"route": "./src/~",
+			"description": "NestJS Application Entry",
+			"version": {
+				"10.0": "./lib/typescript/nestjs/v10.0.ts"
+			}
+		},
+		"express": {
+			"name": "app",
+			"extension": ".ts",
+			"route": "./src/~",
+			"description": "Express TypeScript Boilerplate",
+			"version": {
+				"4.18": "./lib/typescript/express/v4.18.ts"
+			}
+		}
+	},
+	"python": {
+		"requirements": {
+			"name": "requirements",
+			"extension": ".txt",
+			"route": "./~",
+			"description": "Python Requirements",
+			"version": {
+				"3.10": "./lib/python/requirements/v3.10.ts",
+				"3.11": "./lib/python/requirements/v3.11.ts",
+				"3.12": "./lib/python/requirements/v3.12.ts"
+			}
+		},
+		"django-settings": {
+			"name": "settings",
+			"extension": ".py",
+			"route": "./config/~",
+			"description": "Django Settings",
+			"version": {
+				"4.2": "./lib/python/django/v4.2.ts",
+				"5.0": "./lib/python/django/v5.0.ts"
+			}
+		},
+		"flask": {
+			"name": "app",
+			"extension": ".py",
+			"route": "./~",
+			"description": "Flask Application",
+			"version": {
+				"2.3": "./lib/python/flask/v2.3.ts",
+				"3.0": "./lib/python/flask/v3.0.ts"
+			}
+		},
+		"fastapi": {
+			"name": "main",
+			"extension": ".py",
+			"route": "./~",
+			"description": "FastAPI Application",
+			"version": {
+				"0.100": "./lib/python/fastapi/v0.100.ts",
+				"0.104": "./lib/python/fastapi/v0.104.ts"
+			}
+		},
+		"pytest": {
+			"name": "pytest",
+			"extension": ".ini",
+			"route": "./~",
+			"description": "PyTest Configuration",
+			"version": {
+				"7.0": "./lib/python/pytest/v7.0.ts",
+				"8.0": "./lib/python/pytest/v8.0.ts"
+			}
+		},
+		"poetry": {
+			"name": "pyproject",
+			"extension": ".toml",
+			"route": "./~",
+			"description": "Poetry Configuration",
+			"version": {
+				"1.5": "./lib/python/poetry/v1.5.ts",
+				"1.7": "./lib/python/poetry/v1.7.ts"
+			}
+		},
+		"docker": {
+			"name": "Dockerfile",
+			"extension": "",
+			"route": "./~",
+			"description": "Docker for Python",
+			"version": {
+				"python3.10": "./lib/python/docker/python3.10.ts",
+				"python3.12": "./lib/python/docker/python3.12.ts"
+			}
+		},
+		"celery": {
+			"name": "celery",
+			"extension": ".py",
+			"route": "./~",
+			"description": "Celery Configuration",
+			"version": {
+				"5.3": "./lib/python/celery/v5.3.ts"
+			}
+		},
+		"alembic": {
+			"name": "alembic",
+			"extension": ".ini",
+			"route": "./~",
+			"description": "Alembic Migration Configuration",
+			"version": {
+				"1.12": "./lib/python/alembic/v1.12.ts"
+			}
+		},
+		"sphinx": {
+			"name": "conf",
+			"extension": ".py",
+			"route": "./docs/~",
+			"description": "Sphinx Documentation Configuration",
+			"version": {
+				"7.0": "./lib/python/sphinx/v7.0.ts"
+			}
+		},
+		"pre-commit": {
+			"name": ".pre-commit-config",
+			"extension": ".yaml",
+			"route": "./~",
+			"description": "Pre-commit Hooks Configuration",
+			"version": {
+				"3.0": "./lib/python/precommit/v3.0.ts"
+			}
+		},
+		"pyramid": {
+			"name": "development",
+			"extension": ".ini",
+			"route": "./~",
+			"description": "Pyramid Configuration",
+			"version": {
+				"2.0": "./lib/python/pyramid/v2.0.ts"
+			}
+		},
+		"django-rest": {
+			"name": "settings_rest",
+			"extension": ".py",
+			"route": "./config/~",
+			"description": "Django REST Framework Settings",
+			"version": {
+				"3.14": "./lib/python/django-rest/v3.14.ts"
+			}
+		},
+		"pipenv": {
+			"name": "Pipfile",
+			"extension": "",
+			"route": "./~",
+			"description": "Pipenv Configuration",
+			"version": {
+				"2023": "./lib/python/pipenv/v2023.ts"
+			}
+		},
+		"tox": {
+			"name": "tox",
+			"extension": ".ini",
+			"route": "./~",
+			"description": "Tox Testing Configuration",
+			"version": {
+				"4.0": "./lib/python/tox/v4.0.ts"
+			}
+		},
+		"mkdocs": {
+			"name": "mkdocs",
+			"extension": ".yml",
+			"route": "./~",
+			"description": "MkDocs Documentation Configuration",
+			"version": {
+				"1.5": "./lib/python/mkdocs/v1.5.ts"
+			}
+		},
+		"black": {
+			"name": "pyproject",
+			"extension": ".toml",
+			"route": "./~",
+			"description": "Black Formatter Configuration",
+			"version": {
+				"23.0": "./lib/python/black/v23.0.ts"
+			}
+		},
+		"isort": {
+			"name": ".isort",
+			"extension": ".cfg",
+			"route": "./~",
+			"description": "isort Import Sorting Configuration",
+			"version": {
+				"5.0": "./lib/python/isort/v5.0.ts"
+			}
+		},
+		"mypy": {
+			"name": "mypy",
+			"extension": ".ini",
+			"route": "./~",
+			"description": "MyPy Type Checking Configuration",
+			"version": {
+				"1.0": "./lib/python/mypy/v1.0.ts"
+			}
+		},
+		"flake8": {
+			"name": ".flake8",
+			"extension": "",
+			"route": "./~",
+			"description": "Flake8 Linting Configuration",
+			"version": {
+				"6.0": "./lib/python/flake8/v6.0.ts"
+			}
+		},
+		"pylint": {
+			"name": ".pylintrc",
+			"extension": "",
+			"route": "./~",
+			"description": "Pylint Configuration",
+			"version": {
+				"3.0": "./lib/python/pylint/v3.0.ts"
+			}
+		},
+		"pytorch": {
+			"name": "config",
+			"extension": ".yaml",
+			"route": "./config/~",
+			"description": "PyTorch Training Configuration",
+			"version": {
+				"2.0": "./lib/python/pytorch/v2.0.ts"
+			}
+		},
+		"jupyter": {
+			"name": "jupyter_notebook_config",
+			"extension": ".py",
+			"route": "./~",
+			"description": "Jupyter Notebook Configuration",
+			"version": {
+				"7.0": "./lib/python/jupyter/v7.0.ts"
+			}
+		},
+		"airflow": {
+			"name": "airflow",
+			"extension": ".cfg",
+			"route": "./~",
+			"description": "Apache Airflow Configuration",
+			"version": {
+				"2.8": "./lib/python/airflow/v2.8.ts"
+			}
+		}
+	},
+	"csharp": {
+		"csproj": {
+			"name": "project",
+			"extension": ".csproj",
+			"route": "./~",
+			"description": ".NET Project File",
+			"version": {
+				"net6.0": "./lib/csharp/csproj/net6.0.ts",
+				"net7.0": "./lib/csharp/csproj/net7.0.ts",
+				"net8.0": "./lib/csharp/csproj/net8.0.ts"
+			}
+		},
+		"appsettings": {
+			"name": "appsettings",
+			"extension": ".json",
+			"route": "./~",
+			"description": "ASP.NET Core Configuration",
+			"version": {
+				"net6.0": "./lib/csharp/appsettings/net6.0.ts",
+				"net7.0": "./lib/csharp/appsettings/net7.0.ts",
+				"net8.0": "./lib/csharp/appsettings/net8.0.ts"
+			}
+		},
+		"launchSettings": {
+			"name": "launchSettings",
+			"extension": ".json",
+			"route": "./Properties/~",
+			"description": "Launch Settings",
+			"version": {
+				"net6.0": "./lib/csharp/launch/net6.0.ts",
+				"net8.0": "./lib/csharp/launch/net8.0.ts"
+			}
+		},
+		"docker": {
+			"name": "Dockerfile",
+			"extension": "",
+			"route": "./~",
+			"description": "Docker for .NET",
+			"version": {
+				"net6.0": "./lib/csharp/docker/net6.0.ts",
+				"net8.0": "./lib/csharp/docker/net8.0.ts"
+			}
+		},
+		"nuget": {
+			"name": "nuget",
+			"extension": ".config",
+			"route": "./~",
+			"description": "NuGet Configuration",
+			"version": {
+				"6.0": "./lib/csharp/nuget/v6.0.ts",
+				"6.8": "./lib/csharp/nuget/v6.8.ts"
+			}
+		},
+		"blazor": {
+			"name": "_Imports",
+			"extension": ".razor",
+			"route": "./~",
+			"description": "Blazor Imports Configuration",
+			"version": {
+				"net8.0": "./lib/csharp/blazor/net8.0.ts"
+			}
+		},
+		"entity-framework": {
+			"name": "DbContext",
+			"extension": ".cs",
+			"route": "./Data/~",
+			"description": "Entity Framework DbContext",
+			"version": {
+				"net8.0": "./lib/csharp/entity-framework/net8.0.ts"
+			}
+		},
+		"xunit": {
+			"name": "xunit.runner",
+			"extension": ".json",
+			"route": "./~",
+			"description": "xUnit Test Configuration",
+			"version": {
+				"2.0": "./lib/csharp/xunit/v2.0.ts"
+			}
+		},
+		"serilog": {
+			"name": "serilog",
+			"extension": ".json",
+			"route": "./~",
+			"description": "Serilog Logging Configuration",
+			"version": {
+				"3.0": "./lib/csharp/serilog/v3.0.ts"
+			}
+		},
+		"swashbuckle": {
+			"name": "swagger",
+			"extension": ".json",
+			"route": "./~",
+			"description": "Swashbuckle Swagger Configuration",
+			"version": {
+				"6.0": "./lib/csharp/swashbuckle/v6.0.ts"
+			}
+		},
+		"wpf": {
+			"name": "App",
+			"extension": ".xaml",
+			"route": "./~",
+			"description": "WPF Application Configuration",
+			"version": {
+				"net8.0": "./lib/csharp/wpf/net8.0.ts"
+			}
+		}
+	},
+	"go": {
+		"go.mod": {
+			"name": "go",
+			"extension": ".mod",
+			"route": "./~",
+			"description": "Go Module Configuration",
+			"version": {
+				"1.21": "./lib/go/mod/v1.21.ts",
+				"1.22": "./lib/go/mod/v1.22.ts"
+			}
+		},
+		"main": {
+			"name": "main",
+			"extension": ".go",
+			"route": "./~",
+			"description": "Go Main Application",
+			"version": {
+				"1.21": "./lib/go/main/v1.21.ts",
+				"1.22": "./lib/go/main/v1.22.ts"
+			}
+		},
+		"docker": {
+			"name": "Dockerfile",
+			"extension": "",
+			"route": "./~",
+			"description": "Docker for Go",
+			"version": {
+				"go1.21": "./lib/go/docker/go1.21.ts",
+				"go1.22": "./lib/go/docker/go1.22.ts"
+			}
+		}
+	},
+	"rust": {
+		"cargo": {
+			"name": "Cargo",
+			"extension": ".toml",
+			"route": "./~",
+			"description": "Rust Cargo Configuration",
+			"version": {
+				"1.74": "./lib/rust/cargo/v1.74.ts",
+				"1.75": "./lib/rust/cargo/v1.75.ts"
+			}
+		},
+		"main": {
+			"name": "main",
+			"extension": ".rs",
+			"route": "./src/~",
+			"description": "Rust Main Application",
+			"version": {
+				"1.74": "./lib/rust/main/v1.74.ts",
+				"1.75": "./lib/rust/main/v1.75.ts"
+			}
+		}
+	},
+	"ruby": {
+		"gemfile": {
+			"name": "Gemfile",
+			"extension": "",
+			"route": "./~",
+			"description": "Ruby Gemfile",
+			"version": {
+				"3.0": "./lib/ruby/gemfile/v3.0.ts",
+				"3.2": "./lib/ruby/gemfile/v3.2.ts"
+			}
+		},
+		"rails-database": {
+			"name": "database",
+			"extension": ".yml",
+			"route": "./config/~",
+			"description": "Rails Database Configuration",
+			"version": {
+				"7.0": "./lib/ruby/rails/v7.0.ts",
+				"7.1": "./lib/ruby/rails/v7.1.ts"
+			}
+		},
+		"sinatra": {
+			"name": "config",
+			"extension": ".ru",
+			"route": "./~",
+			"description": "Sinatra Rack Configuration",
+			"version": {
+				"3.0": "./lib/ruby/sinatra/v3.0.ts"
+			}
+		},
+		"rspec": {
+			"name": ".rspec",
+			"extension": "",
+			"route": "./~",
+			"description": "RSpec Testing Configuration",
+			"version": {
+				"3.0": "./lib/ruby/rspec/v3.0.ts"
+			}
+		},
+		"rubocop": {
+			"name": ".rubocop",
+			"extension": ".yml",
+			"route": "./~",
+			"description": "RuboCop Linting Configuration",
+			"version": {
+				"1.0": "./lib/ruby/rubocop/v1.0.ts"
+			}
+		}
+	},
+	"php": {
+		"composer": {
+			"name": "composer",
+			"extension": ".json",
+			"route": "./~",
+			"description": "Composer Configuration",
+			"version": {
+				"2.0": "./lib/php/composer/v2.0.ts",
+				"2.6": "./lib/php/composer/v2.6.ts"
+			}
+		},
+		"laravel-env": {
+			"name": ".env",
+			"extension": "",
+			"route": "./~",
+			"description": "Laravel Environment Configuration",
+			"version": {
+				"10": "./lib/php/laravel/v10.ts",
+				"11": "./lib/php/laravel/v11.ts"
+			}
+		},
+		"phpunit": {
+			"name": "phpunit",
+			"extension": ".xml",
+			"route": "./~",
+			"description": "PHPUnit Configuration",
+			"version": {
+				"10.0": "./lib/php/phpunit/v10.0.ts",
+				"11.0": "./lib/php/phpunit/v11.0.ts"
+			}
+		},
+		"symfony-services": {
+			"name": "services",
+			"extension": ".yaml",
+			"route": "./config/~",
+			"description": "Symfony Services Configuration",
+			"version": {
+				"6.0": "./lib/php/symfony/v6.0.ts",
+				"7.0": "./lib/php/symfony/v7.0.ts"
+			}
+		},
+		"phpstan": {
+			"name": "phpstan",
+			"extension": ".neon",
+			"route": "./~",
+			"description": "PHPStan Static Analysis Configuration",
+			"version": {
+				"1.0": "./lib/php/phpstan/v1.0.ts"
+			}
+		},
+		"php-cs-fixer": {
+			"name": ".php-cs-fixer",
+			"extension": ".php",
+			"route": "./~",
+			"description": "PHP CS Fixer Configuration",
+			"version": {
+				"3.0": "./lib/php/php-cs-fixer/v3.0.ts"
+			}
+		}
+	},
+	"kubernetes": {
+		"deployment": {
+			"name": "deployment",
+			"extension": ".yaml",
+			"route": "./k8s/~",
+			"description": "Kubernetes Deployment",
+			"version": {
+				"apps/v1": "./lib/kubernetes/deployment/v1.ts"
+			}
+		},
+		"service": {
+			"name": "service",
+			"extension": ".yaml",
+			"route": "./k8s/~",
+			"description": "Kubernetes Service",
+			"version": {
+				"v1": "./lib/kubernetes/service/v1.ts"
+			}
+		},
+		"configmap": {
+			"name": "configmap",
+			"extension": ".yaml",
+			"route": "./k8s/~",
+			"description": "Kubernetes ConfigMap",
+			"version": {
+				"v1": "./lib/kubernetes/configmap/v1.ts"
+			}
+		},
+		"ingress": {
+			"name": "ingress",
+			"extension": ".yaml",
+			"route": "./k8s/~",
+			"description": "Kubernetes Ingress",
+			"version": {
+				"networking.k8s.io/v1": "./lib/kubernetes/ingress/v1.ts"
+			}
+		},
+		"namespace": {
+			"name": "namespace",
+			"extension": ".yaml",
+			"route": "./k8s/~",
+			"description": "Kubernetes Namespace",
+			"version": {
+				"v1": "./lib/kubernetes/namespace/v1.ts"
+			}
+		},
+		"helm-chart": {
+			"name": "Chart",
+			"extension": ".yaml",
+			"route": "./helm/~",
+			"description": "Helm Chart Configuration",
+			"version": {
+				"v3": "./lib/kubernetes/helm/v3.ts"
+			}
+		},
+		"helm-values": {
+			"name": "values",
+			"extension": ".yaml",
+			"route": "./helm/~",
+			"description": "Helm Values Configuration",
+			"version": {
+				"v3": "./lib/kubernetes/helm-values/v3.ts"
+			}
+		}
+	},
+	"database": {
+		"mysql-init": {
+			"name": "init",
+			"extension": ".sql",
+			"route": "./db/~",
+			"description": "MySQL Initialization Script",
+			"version": {
+				"8.0": "./lib/database/mysql/v8.0.ts"
+			}
+		},
+		"postgres-init": {
+			"name": "init",
+			"extension": ".sql",
+			"route": "./db/~",
+			"description": "PostgreSQL Initialization Script",
+			"version": {
+				"15": "./lib/database/postgres/v15.ts",
+				"16": "./lib/database/postgres/v16.ts"
+			}
+		},
+		"mongodb-init": {
+			"name": "init",
+			"extension": ".js",
+			"route": "./db/~",
+			"description": "MongoDB Initialization Script",
+			"version": {
+				"7.0": "./lib/database/mongodb/v7.0.ts"
+			}
+		},
+		"redis": {
+			"name": "redis",
+			"extension": ".conf",
+			"route": "./~",
+			"description": "Redis Configuration",
+			"version": {
+				"7.0": "./lib/database/redis/v7.0.ts",
+				"7.2": "./lib/database/redis/v7.2.ts"
+			}
+		}
+	},
+	"cicd": {
+		"github-actions": {
+			"name": "main",
+			"extension": ".yml",
+			"route": "./.github/workflows/~",
+			"description": "GitHub Actions Workflow",
+			"version": {
+				"v4": "./lib/cicd/github/v4.ts"
+			}
+		},
+		"gitlab-ci": {
+			"name": ".gitlab-ci",
+			"extension": ".yml",
+			"route": "./~",
+			"description": "GitLab CI Configuration",
+			"version": {
+				"latest": "./lib/cicd/gitlab/latest.ts"
+			}
+		},
+		"jenkins": {
+			"name": "Jenkinsfile",
+			"extension": "",
+			"route": "./~",
+			"description": "Jenkins Pipeline",
+			"version": {
+				"declarative": "./lib/cicd/jenkins/declarative.ts",
+				"scripted": "./lib/cicd/jenkins/scripted.ts"
+			}
+		},
+		"circleci": {
+			"name": "config",
+			"extension": ".yml",
+			"route": "./.circleci/~",
+			"description": "CircleCI Configuration",
+			"version": {
+				"2.1": "./lib/cicd/circleci/v2.1.ts"
+			}
+		},
+		"travis": {
+			"name": ".travis",
+			"extension": ".yml",
+			"route": "./~",
+			"description": "Travis CI Configuration",
+			"version": {
+				"latest": "./lib/cicd/travis/latest.ts"
+			}
+		}
+	},
+	"infrastructure": {
+		"terraform": {
+			"name": "main",
+			"extension": ".tf",
+			"route": "./terraform/~",
+			"description": "Terraform Configuration",
+			"version": {
+				"1.5": "./lib/infrastructure/terraform/v1.5.ts",
+				"1.6": "./lib/infrastructure/terraform/v1.6.ts"
+			}
+		},
+		"ansible": {
+			"name": "playbook",
+			"extension": ".yml",
+			"route": "./ansible/~",
+			"description": "Ansible Playbook",
+			"version": {
+				"2.14": "./lib/infrastructure/ansible/v2.14.ts",
+				"2.15": "./lib/infrastructure/ansible/v2.15.ts"
+			}
+		},
+		"vagrant": {
+			"name": "Vagrantfile",
+			"extension": "",
+			"route": "./~",
+			"description": "Vagrant Configuration",
+			"version": {
+				"2.3": "./lib/infrastructure/vagrant/v2.3.ts"
+			}
+		},
+		"serverless": {
+			"name": "serverless",
+			"extension": ".yml",
+			"route": "./~",
+			"description": "Serverless Framework Configuration",
+			"version": {
+				"3.0": "./lib/infrastructure/serverless/v3.0.ts"
+			}
+		},
+		"docker-swarm": {
+			"name": "stack",
+			"extension": ".yml",
+			"route": "./~",
+			"description": "Docker Swarm Stack Configuration",
+			"version": {
+				"3.8": "./lib/infrastructure/docker-swarm/v3.8.ts"
+			}
+		},
+		"cloudformation": {
+			"name": "template",
+			"extension": ".yaml",
+			"route": "./cloudformation/~",
+			"description": "AWS CloudFormation Template",
+			"version": {
+				"latest": "./lib/infrastructure/cloudformation/latest.ts"
+			}
+		}
+	},
+	"monitoring": {
+		"prometheus": {
+			"name": "prometheus",
+			"extension": ".yml",
+			"route": "./monitoring/~",
+			"description": "Prometheus Configuration",
+			"version": {
+				"2.45": "./lib/monitoring/prometheus/v2.45.ts"
+			}
+		},
+		"grafana-dashboard": {
+			"name": "dashboard",
+			"extension": ".json",
+			"route": "./monitoring/grafana/~",
+			"description": "Grafana Dashboard",
+			"version": {
+				"10.0": "./lib/monitoring/grafana/v10.0.ts"
+			}
+		},
+		"elk-logstash": {
+			"name": "logstash",
+			"extension": ".conf",
+			"route": "./elk/~",
+			"description": "Logstash Configuration",
+			"version": {
+				"8.0": "./lib/monitoring/logstash/v8.0.ts"
+			}
+		},
+		"elk-filebeat": {
+			"name": "filebeat",
+			"extension": ".yml",
+			"route": "./elk/~",
+			"description": "Filebeat Configuration",
+			"version": {
+				"8.0": "./lib/monitoring/filebeat/v8.0.ts"
+			}
+		},
+		"datadog": {
+			"name": "datadog",
+			"extension": ".yaml",
+			"route": "./~",
+			"description": "Datadog Agent Configuration",
+			"version": {
+				"7.0": "./lib/monitoring/datadog/v7.0.ts"
+			}
+		},
+		"new-relic": {
+			"name": "newrelic",
+			"extension": ".yml",
+			"route": "./~",
+			"description": "New Relic Agent Configuration",
+			"version": {
+				"latest": "./lib/monitoring/new-relic/latest.ts"
+			}
+		},
+		"sentry": {
+			"name": "sentry",
+			"extension": ".properties",
+			"route": "./~",
+			"description": "Sentry Error Tracking Configuration",
+			"version": {
+				"latest": "./lib/monitoring/sentry/latest.ts"
+			}
+		}
+	},
+	"mobile": {
+		"flutter-pubspec": {
+			"name": "pubspec",
+			"extension": ".yaml",
+			"route": "./~",
+			"description": "Flutter Pubspec Configuration",
+			"version": {
+				"3.0": "./lib/mobile/flutter/v3.0.ts",
+				"3.16": "./lib/mobile/flutter/v3.16.ts"
+			}
+		},
+		"react-native-metro": {
+			"name": "metro.config",
+			"extension": ".js",
+			"route": "./~",
+			"description": "React Native Metro Configuration",
+			"version": {
+				"0.72": "./lib/mobile/react-native/v0.72.ts",
+				"0.73": "./lib/mobile/react-native/v0.73.ts"
+			}
+		},
+		"ionic": {
+			"name": "ionic.config",
+			"extension": ".json",
+			"route": "./~",
+			"description": "Ionic Framework Configuration",
+			"version": {
+				"7.0": "./lib/mobile/ionic/v7.0.ts"
+			}
+		},
+		"cordova": {
+			"name": "config",
+			"extension": ".xml",
+			"route": "./~",
+			"description": "Apache Cordova Configuration",
+			"version": {
+				"11.0": "./lib/mobile/cordova/v11.0.ts"
+			}
+		},
+		"kotlin": {
+			"name": "build.gradle",
+			"extension": ".kts",
+			"route": "./~",
+			"description": "Kotlin Gradle Build Configuration",
+			"version": {
+				"1.9": "./lib/mobile/kotlin/v1.9.ts"
+			}
+		},
+		"swift": {
+			"name": "Package",
+			"extension": ".swift",
+			"route": "./~",
+			"description": "Swift Package Configuration",
+			"version": {
+				"5.9": "./lib/mobile/swift/v5.9.ts"
+			}
+		}
+	},
+	"config": {
+		"gitignore": {
+			"name": ".gitignore",
+			"extension": "",
+			"route": "./~",
+			"description": "Git Ignore File",
+			"version": {
+				"java": "./lib/config/gitignore/java.ts",
+				"node": "./lib/config/gitignore/node.ts",
+				"python": "./lib/config/gitignore/python.ts",
+				"csharp": "./lib/config/gitignore/csharp.ts",
+				"go": "./lib/config/gitignore/go.ts",
+				"rust": "./lib/config/gitignore/rust.ts"
+			}
+		},
+		"editorconfig": {
+			"name": ".editorconfig",
+			"extension": "",
+			"route": "./~",
+			"description": "Editor Configuration",
+			"version": {
+				"standard": "./lib/config/editorconfig/standard.ts"
+			}
+		},
+		"readme": {
+			"name": "README",
+			"extension": ".md",
+			"route": "./~",
+			"description": "README Documentation",
+			"version": {
+				"standard": "./lib/config/readme/standard.ts",
+				"detailed": "./lib/config/readme/detailed.ts"
+			}
+		},
+		"license": {
+			"name": "LICENSE",
+			"extension": "",
+			"route": "./~",
+			"description": "License File",
+			"version": {
+				"mit": "./lib/config/license/mit.ts",
+				"apache2": "./lib/config/license/apache2.ts",
+				"gpl3": "./lib/config/license/gpl3.ts"
+			}
+		},
+		"contributing": {
+			"name": "CONTRIBUTING",
+			"extension": ".md",
+			"route": "./~",
+			"description": "Contributing Guidelines",
+			"version": {
+				"standard": "./lib/config/contributing/standard.ts"
+			}
+		},
+		"changelog": {
+			"name": "CHANGELOG",
+			"extension": ".md",
+			"route": "./~",
+			"description": "Changelog File",
+			"version": {
+				"standard": "./lib/config/changelog/standard.ts"
+			}
+		},
+		"codeowners": {
+			"name": "CODEOWNERS",
+			"extension": "",
+			"route": "./.github/~",
+			"description": "GitHub Code Owners",
+			"version": {
+				"standard": "./lib/config/codeowners/standard.ts"
+			}
+		},
+		"gitattributes": {
+			"name": ".gitattributes",
+			"extension": "",
+			"route": "./~",
+			"description": "Git Attributes Configuration",
+			"version": {
+				"standard": "./lib/config/gitattributes/standard.ts"
+			}
+		},
+		"gitmodules": {
+			"name": ".gitmodules",
+			"extension": "",
+			"route": "./~",
+			"description": "Git Submodules Configuration",
+			"version": {
+				"standard": "./lib/config/gitmodules/standard.ts"
+			}
+		},
+		"git-hooks": {
+			"name": "pre-commit",
+			"extension": "",
+			"route": "./.git/hooks/~",
+			"description": "Git Hooks Configuration",
+			"version": {
+				"pre-commit": "./lib/config/git-hooks/pre-commit.ts",
+				"commit-msg": "./lib/config/git-hooks/commit-msg.ts"
+			}
+		},
+		"hgignore": {
+			"name": ".hgignore",
+			"extension": "",
+			"route": "./~",
+			"description": "Mercurial Ignore File",
+			"version": {
+				"standard": "./lib/config/hgignore/standard.ts"
+			}
+		}
+	},
+	"security": {
+		"sonarqube": {
+			"name": "sonar-project",
+			"extension": ".properties",
+			"route": "./~",
+			"description": "SonarQube Configuration",
+			"version": {
+				"10.0": "./lib/security/sonarqube/v10.0.ts"
+			}
+		},
+		"snyk": {
+			"name": ".snyk",
+			"extension": "",
+			"route": "./~",
+			"description": "Snyk Security Configuration",
+			"version": {
+				"latest": "./lib/security/snyk/latest.ts"
+			}
+		},
+		"trivy": {
+			"name": "trivy",
+			"extension": ".yaml",
+			"route": "./~",
+			"description": "Trivy Security Scanner Configuration",
+			"version": {
+				"0.45": "./lib/security/trivy/v0.45.ts"
+			}
+		}
+	},
+	"message-queue": {
+		"rabbitmq": {
+			"name": "rabbitmq",
+			"extension": ".conf",
+			"route": "./~",
+			"description": "RabbitMQ Configuration",
+			"version": {
+				"3.12": "./lib/message-queue/rabbitmq/v3.12.ts"
+			}
+		},
+		"kafka": {
+			"name": "server",
+			"extension": ".properties",
+			"route": "./~",
+			"description": "Apache Kafka Configuration",
+			"version": {
+				"3.6": "./lib/message-queue/kafka/v3.6.ts"
+			}
+		},
+		"activemq": {
+			"name": "activemq",
+			"extension": ".xml",
+			"route": "./~",
+			"description": "ActiveMQ Configuration",
+			"version": {
+				"5.18": "./lib/message-queue/activemq/v5.18.ts"
+			}
+		}
+	},
+	"testing": {
+		"k6": {
+			"name": "script",
+			"extension": ".js",
+			"route": "./tests/~",
+			"description": "K6 Load Testing Script",
+			"version": {
+				"0.48": "./lib/testing/k6/v0.48.ts"
+			}
+		},
+		"postman": {
+			"name": "collection",
+			"extension": ".json",
+			"route": "./tests/~",
+			"description": "Postman Collection",
+			"version": {
+				"2.1": "./lib/testing/postman/v2.1.ts"
+			}
+		},
+		"cucumber": {
+			"name": "cucumber",
+			"extension": ".js",
+			"route": "./~",
+			"description": "Cucumber.js Configuration",
+			"version": {
+				"10.0": "./lib/testing/cucumber/v10.0.ts"
+			}
+		}
+	},
+	"documentation": {
+		"asyncapi": {
+			"name": "asyncapi",
+			"extension": ".yaml",
+			"route": "./~",
+			"description": "AsyncAPI Specification",
+			"version": {
+				"2.6": "./lib/documentation/asyncapi/v2.6.ts"
+			}
+		},
+		"jsdoc": {
+			"name": "jsdoc",
+			"extension": ".json",
+			"route": "./~",
+			"description": "JSDoc Configuration",
+			"version": {
+				"4.0": "./lib/documentation/jsdoc/v4.0.ts"
+			}
+		},
+		"docusaurus": {
+			"name": "docusaurus.config",
+			"extension": ".js",
+			"route": "./~",
+			"description": "Docusaurus Configuration",
+			"version": {
+				"3.0": "./lib/documentation/docusaurus/v3.0.ts"
+			}
+		}
+	},
+	"game": {
+		"unity": {
+			"name": "ProjectSettings",
+			"extension": ".asset",
+			"route": "./ProjectSettings/~",
+			"description": "Unity Project Settings",
+			"version": {
+				"2023": "./lib/game/unity/v2023.ts"
+			}
+		},
+		"godot": {
+			"name": "project.godot",
+			"extension": "",
+			"route": "./~",
+			"description": "Godot Project Configuration",
+			"version": {
+				"4.0": "./lib/game/godot/v4.0.ts"
+			}
+		},
+		"unity-shader": {
+			"name": "shader",
+			"extension": ".shader",
+			"route": "./Assets/Shaders/~",
+			"description": "Unity Shader Configuration",
+			"version": {
+				"standard": "./lib/game/unity-shader/standard.ts",
+				"urp": "./lib/game/unity-shader/urp.ts",
+				"hdrp": "./lib/game/unity-shader/hdrp.ts"
+			}
+		},
+		"unreal-uproject": {
+			"name": "project",
+			"extension": ".uproject",
+			"route": "./~",
+			"description": "Unreal Engine Project Configuration",
+			"version": {
+				"5.3": "./lib/game/unreal-uproject/v5.3.ts"
+			}
+		},
+		"unreal-build": {
+			"name": "Module.Build",
+			"extension": ".cs",
+			"route": "./Source/ModuleName/~",
+			"description": "Unreal Engine Build Configuration",
+			"version": {
+				"5.3": "./lib/game/unreal-build/v5.3.ts"
+			}
+		},
+		"unreal-target": {
+			"name": "Module.Target",
+			"extension": ".cs",
+			"route": "./Source/~",
+			"description": "Unreal Engine Target Configuration",
+			"version": {
+				"5.3": "./lib/game/unreal-target/v5.3.ts"
+			}
+		},
+		"raylib-makefile": {
+			"name": "Makefile",
+			"extension": "",
+			"route": "./~",
+			"description": "Raylib Makefile Configuration",
+			"version": {
+				"5.0": "./lib/game/raylib-makefile/v5.0.ts"
+			}
+		}
+	},
+	"embedded": {
+		"arduino": {
+			"name": "sketch",
+			"extension": ".ino",
+			"route": "./~",
+			"description": "Arduino Sketch",
+			"version": {
+				"latest": "./lib/embedded/arduino/latest.ts"
+			}
+		},
+		"platformio": {
+			"name": "platformio",
+			"extension": ".ini",
+			"route": "./~",
+			"description": "PlatformIO Configuration",
+			"version": {
+				"6.0": "./lib/embedded/platformio/v6.0.ts"
+			}
+		}
+	},
+	"desktop": {
+		"tauri": {
+			"name": "tauri.conf",
+			"extension": ".json",
+			"route": "./src-tauri/~",
+			"description": "Tauri Application Configuration",
+			"version": {
+				"2.0": "./lib/desktop/tauri/v2.0.ts"
+			}
+		},
+		"qt-pro": {
+			"name": "project",
+			"extension": ".pro",
+			"route": "./~",
+			"description": "Qt Project Configuration",
+			"version": {
+				"6.0": "./lib/desktop/qt-pro/v6.0.ts"
+			}
+		},
+		"qt-cmake": {
+			"name": "CMakeLists",
+			"extension": ".txt",
+			"route": "./~",
+			"description": "Qt CMake Configuration",
+			"version": {
+				"6.0": "./lib/desktop/qt-cmake/v6.0.ts"
+			}
+		},
+		"gtk-meson": {
+			"name": "meson.build",
+			"extension": "",
+			"route": "./~",
+			"description": "GTK Meson Build Configuration",
+			"version": {
+				"4.0": "./lib/desktop/gtk-meson/v4.0.ts"
+			}
+		}
+	},
+	"ai-ml": {
+		"tensorflow-config": {
+			"name": "config",
+			"extension": ".json",
+			"route": "./~",
+			"description": "TensorFlow Model Configuration",
+			"version": {
+				"2.15": "./lib/ai-ml/tensorflow-config/v2.15.ts"
+			}
+		},
+		"huggingface": {
+			"name": "config",
+			"extension": ".json",
+			"route": "./~",
+			"description": "Hugging Face Model Configuration",
+			"version": {
+				"latest": "./lib/ai-ml/huggingface/latest.ts"
+			}
+		},
+		"onnx": {
+			"name": "model_config",
+			"extension": ".json",
+			"route": "./~",
+			"description": "ONNX Model Configuration",
+			"version": {
+				"1.0": "./lib/ai-ml/onnx/v1.0.ts"
+			}
+		},
+		"mlflow": {
+			"name": "mlflow",
+			"extension": ".yaml",
+			"route": "./~",
+			"description": "MLflow Tracking Configuration",
+			"version": {
+				"2.0": "./lib/ai-ml/mlflow/v2.0.ts"
+			}
+		},
+		"wandb": {
+			"name": "wandb",
+			"extension": ".yaml",
+			"route": "./~",
+			"description": "Weights & Biases Configuration",
+			"version": {
+				"latest": "./lib/ai-ml/wandb/latest.ts"
+			}
+		}
+	},
+	"blockchain": {
+		"solidity-hardhat": {
+			"name": "hardhat.config",
+			"extension": ".js",
+			"route": "./~",
+			"description": "Hardhat Configuration for Solidity",
+			"version": {
+				"2.19": "./lib/blockchain/solidity-hardhat/v2.19.ts"
+			}
+		},
+		"solidity-truffle": {
+			"name": "truffle-config",
+			"extension": ".js",
+			"route": "./~",
+			"description": "Truffle Configuration for Solidity",
+			"version": {
+				"5.0": "./lib/blockchain/solidity-truffle/v5.0.ts"
+			}
+		},
+		"foundry": {
+			"name": "foundry",
+			"extension": ".toml",
+			"route": "./~",
+			"description": "Foundry Configuration",
+			"version": {
+				"latest": "./lib/blockchain/foundry/latest.ts"
+			}
+		},
+		"anchor": {
+			"name": "Anchor",
+			"extension": ".toml",
+			"route": "./~",
+			"description": "Anchor Framework Configuration",
+			"version": {
+				"0.29": "./lib/blockchain/anchor/v0.29.ts"
+			}
+		}
+	},
+	"api-gateway": {
+		"kong": {
+			"name": "kong",
+			"extension": ".yml",
+			"route": "./~",
+			"description": "Kong API Gateway Configuration",
+			"version": {
+				"3.0": "./lib/api-gateway/kong/v3.0.ts"
+			}
+		},
+		"traefik": {
+			"name": "traefik",
+			"extension": ".yml",
+			"route": "./~",
+			"description": "Traefik Proxy Configuration",
+			"version": {
+				"3.0": "./lib/api-gateway/traefik/v3.0.ts"
+			}
+		},
+		"envoy": {
+			"name": "envoy",
+			"extension": ".yaml",
+			"route": "./~",
+			"description": "Envoy Proxy Configuration",
+			"version": {
+				"1.28": "./lib/api-gateway/envoy/v1.28.ts"
+			}
+		},
+		"haproxy": {
+			"name": "haproxy",
+			"extension": ".cfg",
+			"route": "./~",
+			"description": "HAProxy Load Balancer Configuration",
+			"version": {
+				"2.8": "./lib/api-gateway/haproxy/v2.8.ts"
+			}
+		},
+		"apache-htaccess": {
+			"name": ".htaccess",
+			"extension": "",
+			"route": "./~",
+			"description": "Apache .htaccess Configuration",
+			"version": {
+				"2.4": "./lib/api-gateway/apache-htaccess/v2.4.ts"
+			}
+		},
+		"apache-httpd": {
+			"name": "httpd",
+			"extension": ".conf",
+			"route": "./~",
+			"description": "Apache HTTP Server Configuration",
+			"version": {
+				"2.4": "./lib/api-gateway/apache-httpd/v2.4.ts"
+			}
+		},
+		"caddy": {
+			"name": "Caddyfile",
+			"extension": "",
+			"route": "./~",
+			"description": "Caddy Web Server Configuration",
+			"version": {
+				"2.0": "./lib/api-gateway/caddy/v2.0.ts"
+			}
+		}
+	},
+	"data-analytics": {
+		"dbt": {
+			"name": "dbt_project",
+			"extension": ".yml",
+			"route": "./~",
+			"description": "dbt Project Configuration",
+			"version": {
+				"1.7": "./lib/data-analytics/dbt/v1.7.ts"
+			}
+		},
+		"spark": {
+			"name": "spark-defaults",
+			"extension": ".conf",
+			"route": "./~",
+			"description": "Apache Spark Configuration",
+			"version": {
+				"3.5": "./lib/data-analytics/spark/v3.5.ts"
+			}
+		},
+		"flink": {
+			"name": "flink-conf",
+			"extension": ".yaml",
+			"route": "./~",
+			"description": "Apache Flink Configuration",
+			"version": {
+				"1.18": "./lib/data-analytics/flink/v1.18.ts"
+			}
+		},
+		"debezium": {
+			"name": "connector",
+			"extension": ".json",
+			"route": "./~",
+			"description": "Debezium Connector Configuration",
+			"version": {
+				"2.5": "./lib/data-analytics/debezium/v2.5.ts"
+			}
+		}
+	},
+	"authentication": {
+		"keycloak": {
+			"name": "realm-export",
+			"extension": ".json",
+			"route": "./~",
+			"description": "Keycloak Realm Configuration",
+			"version": {
+				"23.0": "./lib/authentication/keycloak/v23.0.ts"
+			}
+		},
+		"auth0": {
+			"name": "auth0",
+			"extension": ".json",
+			"route": "./~",
+			"description": "Auth0 Configuration",
+			"version": {
+				"latest": "./lib/authentication/auth0/latest.ts"
+			}
+		},
+		"ory-kratos": {
+			"name": "kratos",
+			"extension": ".yml",
+			"route": "./~",
+			"description": "Ory Kratos Identity Configuration",
+			"version": {
+				"1.0": "./lib/authentication/ory-kratos/v1.0.ts"
+			}
+		}
+	},
+	"storage": {
+		"minio": {
+			"name": "config",
+			"extension": ".json",
+			"route": "./~",
+			"description": "MinIO Object Storage Configuration",
+			"version": {
+				"latest": "./lib/storage/minio/latest.ts"
+			}
+		},
+		"ceph": {
+			"name": "ceph",
+			"extension": ".conf",
+			"route": "./~",
+			"description": "Ceph Storage Cluster Configuration",
+			"version": {
+				"18.0": "./lib/storage/ceph/v18.0.ts"
+			}
+		}
+	},
+	"build-tools": {
+		"make": {
+			"name": "Makefile",
+			"extension": "",
+			"route": "./~",
+			"description": "GNU Make Configuration",
+			"version": {
+				"standard": "./lib/build-tools/make/standard.ts"
+			}
+		},
+		"cmake": {
+			"name": "CMakeLists",
+			"extension": ".txt",
+			"route": "./~",
+			"description": "CMake Build Configuration",
+			"version": {
+				"3.28": "./lib/build-tools/cmake/v3.28.ts"
+			}
+		},
+		"bazel": {
+			"name": "BUILD",
+			"extension": "",
+			"route": "./~",
+			"description": "Bazel Build Configuration",
+			"version": {
+				"7.0": "./lib/build-tools/bazel/v7.0.ts"
+			}
+		},
+		"msbuild-targets": {
+			"name": "custom",
+			"extension": ".targets",
+			"route": "./~",
+			"description": "MSBuild Targets Configuration",
+			"version": {
+				"net8.0": "./lib/build-tools/msbuild-targets/net8.0.ts"
+			}
+		},
+		"rush": {
+			"name": "rush",
+			"extension": ".json",
+			"route": "./~",
+			"description": "Rush Monorepo Configuration",
+			"version": {
+				"5.0": "./lib/build-tools/rush/v5.0.ts"
+			}
+		},
+		"pants": {
+			"name": "pants",
+			"extension": ".toml",
+			"route": "./~",
+			"description": "Pants Build System Configuration",
+			"version": {
+				"2.19": "./lib/build-tools/pants/v2.19.ts"
+			}
+		}
+	},
+	"package-managers": {
+		"conan": {
+			"name": "conanfile",
+			"extension": ".py",
+			"route": "./~",
+			"description": "Conan C/C++ Package Configuration",
+			"version": {
+				"2.0": "./lib/package-managers/conan/v2.0.ts"
+			}
+		},
+		"vcpkg": {
+			"name": "vcpkg",
+			"extension": ".json",
+			"route": "./~",
+			"description": "vcpkg Manifest Configuration",
+			"version": {
+				"latest": "./lib/package-managers/vcpkg/latest.ts"
+			}
+		},
+		"cocoapods": {
+			"name": "Podfile",
+			"extension": "",
+			"route": "./~",
+			"description": "CocoaPods Dependency Configuration",
+			"version": {
+				"1.0": "./lib/package-managers/cocoapods/v1.0.ts"
+			}
+		},
+		"cpm-cmake": {
+			"name": "CPM",
+			"extension": ".cmake",
+			"route": "./~",
+			"description": "CPM.cmake Package Manager Configuration",
+			"version": {
+				"0.38": "./lib/package-managers/cpm-cmake/v0.38.ts"
+			}
+		}
+	},
+	"graphics": {
+		"unity-shader-shadergraph": {
+			"name": "shader",
+			"extension": ".shadergraph",
+			"route": "./Assets/Shaders/~",
+			"description": "Unity Shader Graph Configuration",
+			"version": {
+				"2023": "./lib/graphics/unity-shadergraph/v2023.ts"
+			}
+		},
+		"unity-shader-hlsl": {
+			"name": "include",
+			"extension": ".hlsl",
+			"route": "./Assets/Shaders/~",
+			"description": "Unity HLSL Include Configuration",
+			"version": {
+				"standard": "./lib/graphics/unity-hlsl/standard.ts"
+			}
+		}
+	}
+}
