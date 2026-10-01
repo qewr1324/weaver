@@ -1,10 +1,9 @@
 import * as vscode from "vscode";
 import { ensureGlobalConfig, setGlobalConfig } from "../config/loader";
-import type { WeaverConfig } from "../config/types";
 import { log } from "../core/logger";
-import { AddNodeCommand, RemoveNodeCommand, SetTransformCommand, SetWholeTransformCommand, type TransformSnapshot } from "../editor/commands";
+import { AddNodeCommand, DuplicateNodeCommand, RemoveNodeCommand, SetTransformCommand, SetWholeTransformCommand, type TransformSnapshot } from "../editor/commands";
 import type { EditorContext } from "../editor/editor-context";
-import type { SceneDocument } from "../editor/scene-document";
+import { SceneDocument } from "../editor/scene-document";
 import { type Component, nextComponentId } from "../scene/components";
 import { Node } from "../scene/node";
 import { Serializer } from "../scene/serializer";
@@ -25,10 +24,11 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		};
 		panel.webview.html = loadWebviewHtml(this.context, panel.webview, "viewport.html");
 
-		// ساخت SceneDocument اولیه
+		// ─── ساخت SceneDocument اولیه ───
 		const initialScene = Serializer.tryDeserialize(document.getText());
 		if (!initialScene.ok) {
-			panel.webview.postMessage({ type: "error", message: initialScene.error });
+			log.error("initial scene invalid:", initialScene.error);
+			panel.webview.html = this.errorHtml(initialScene.error);
 			return;
 		}
 
@@ -46,7 +46,10 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 
 		const sendScene = () => {
 			const resolved = doc.scene.resolvedConfig();
-			if (!resolved) return;
+			if (!resolved) {
+				log.warn("global config not ready");
+				return;
+			}
 			post({
 				type: "scene:update",
 				payload: { ...doc.scene.toJSON(), config: resolved },
@@ -56,7 +59,6 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		// sub: فایل تغییر کرد → scene رو دوباره load کن
 		const changeSub = vscode.workspace.onDidChangeTextDocument((e) => {
 			if (e.document.uri.toString() !== document.uri.toString()) return;
-			// اگه خودمون داریم می‌نویسیم، ignore
 			if (doc.dirty) return;
 			doc.applyFromText(e.document.getText());
 			this.editor.loadScene(doc.scene);
@@ -89,39 +91,45 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		let initialSent = false;
 
 		panel.webview.onDidReceiveMessage(async (msg) => {
-			switch (msg.type) {
-				case "select":
-					this.editor.selection.set(msg.ids ?? []);
-					break;
+			try {
+				switch (msg.type) {
+					case "select":
+						this.editor.selection.set(msg.ids ?? []);
+						break;
 
-				case "add:node":
-					await this.handleAddNode(doc, msg.payload);
-					break;
+					case "add:node":
+						await this.handleAddNode(doc, msg.payload);
+						break;
 
-				case "remove:node":
-					await this.handleRemoveNode(doc, msg.nodeId);
-					break;
+					case "remove:node":
+						await this.handleRemoveNode(doc, msg.nodeId);
+						break;
 
-				case "update:transform": {
-					// دو حالت: axis/value برای Inspector، یا transform کامل برای Gizmo
-					if (msg.transform) {
-						await this.handleWholeTransform(doc, msg.nodeId, msg.transform);
-					} else {
-						await this.handleAxisTransform(doc, msg.nodeId, msg.channel, msg.axis, msg.value);
-					}
-					break;
+					case "duplicate:node":
+						await this.handleDuplicateNode(doc, msg.nodeId);
+						break;
+
+					case "update:transform":
+						if (msg.transform) {
+							await this.handleWholeTransform(doc, msg.nodeId, msg.transform);
+						} else {
+							await this.handleAxisTransform(doc, msg.nodeId, msg.channel, msg.axis, msg.value);
+						}
+						break;
+
+					case "ready":
+						if (initialSent) return;
+						initialSent = true;
+
+						if (!doc.scene.resolvedConfig()) {
+							const cfg = await ensureGlobalConfig(this.context);
+							setGlobalConfig(cfg);
+						}
+						sendScene();
+						break;
 				}
-
-				case "ready":
-					if (initialSent) return;
-					initialSent = true;
-
-					if (!doc.scene.resolvedConfig()) {
-						const cfg = await ensureGlobalConfig(this.context);
-						setGlobalConfig(cfg);
-					}
-					sendScene();
-					break;
+			} catch (err) {
+				log.error(`message handler failed for ${msg.type}:`, err);
 			}
 		});
 	}
@@ -148,6 +156,22 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		const node = doc.scene.findNode(nodeId);
 		if (!node) return;
 		await this.editor.commands.execute(new RemoveNodeCommand(doc.scene, node));
+		this.editor.selection.remove(nodeId);
+	}
+
+	private async handleDuplicateNode(doc: SceneDocument, nodeId: string): Promise<void> {
+		const node = doc.scene.findNode(nodeId);
+		if (!node) return;
+
+		const cmd = new DuplicateNodeCommand(doc.scene, node, (src) => src.clone());
+		await this.editor.commands.execute(cmd);
+
+		// انتخاب کپی جدید
+		const parent = node.parent;
+		if (parent) {
+			const last = parent.children[parent.children.length - 1];
+			if (last) this.editor.selection.set([last.id]);
+		}
 	}
 
 	private async handleWholeTransform(doc: SceneDocument, nodeId: string, transform: TransformSnapshot): Promise<void> {
@@ -160,5 +184,12 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		const node = doc.scene.findNode(nodeId);
 		if (!node || typeof value !== "number") return;
 		await this.editor.commands.execute(new SetTransformCommand(node, channel as any, axis as any, value));
+	}
+
+	private errorHtml(message: string): string {
+		return `<!DOCTYPE html><html><body style="color:#f66;font-family:monospace;padding:20px;background:#0D1117">
+			<h3>Weaver: invalid scene file</h3>
+			<pre>${message.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[c]!)}</pre>
+		</body></html>`;
 	}
 }
