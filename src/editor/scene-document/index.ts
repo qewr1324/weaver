@@ -51,11 +51,9 @@ export class SceneDocument extends Disposable {
 
 	/**
 	 * از سمت VSCode document → Scene in-memory
-	 * (وقتی کاربر فایل رو دستی یا از undo خود VSCode تغییر می‌ده)
 	 */
 	applyFromText(text: string): void {
 		try {
-			const parsed = JSON.parse(text);
 			const scene = Serializer.deserialize(text);
 			this._syncing = true;
 			this._scene = scene;
@@ -70,10 +68,9 @@ export class SceneDocument extends Disposable {
 
 	/**
 	 * از Scene → فایل.
-	 * تغییرات رو به صورت یک WorkspaceEdit روی document می‌نویسه.
-	 * باید debounced بشه (از خارج).
+	 * @param save اگه true باشه، بعد از applyEdit یه doc.save() هم می‌زنه.
 	 */
-	async flushToDocument(): Promise<void> {
+	async flushToDocument(save = false): Promise<void> {
 		const doc = vscode.workspace.textDocuments.find((d) => d.uri.toString() === this.uri.toString());
 		if (!doc) {
 			this.log.warn("document not found for flush", this.uri.toString());
@@ -83,12 +80,18 @@ export class SceneDocument extends Disposable {
 		const json = Serializer.serialize(this._scene);
 		if (json === doc.getText()) {
 			this.markDirty(false);
+			if (save) await doc.save();
 			return;
 		}
 
 		const edit = new vscode.WorkspaceEdit();
 		edit.replace(this.uri, new vscode.Range(0, 0, doc.lineCount, 0), json);
 		await vscode.workspace.applyEdit(edit);
+
+		if (save) {
+			await doc.save();
+		}
+
 		this.markDirty(false);
 	}
 

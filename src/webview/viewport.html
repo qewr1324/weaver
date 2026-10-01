@@ -270,7 +270,7 @@
       box-shadow: inset 0 0 0 2px #FFA500;
     }
 
-    /* ─── Crosshair (وسط صفحه) ─── */
+    /* ─── Crosshair ─── */
     #crosshair {
       position: absolute;
       top: 50%;
@@ -362,7 +362,8 @@
         <span class="k">WASD</span> move &nbsp; <span class="k">Q/E</span> down/up<br />
         <span class="k">Shift</span> fast &nbsp; <span class="k">Space</span> slow &nbsp; <span class="k">Wheel</span>
         speed<br />
-        <span class="k">LMB</span> select &nbsp; <span class="k">Esc</span> deselect
+        <span class="k">LMB</span> select &nbsp; <span class="k">Esc</span> deselect &nbsp; <span class="k">Del</span>
+        delete
       </div>
       <div id="fps">-- FPS</div>
       <div id="status" class="off">● F to look · WASD to move</div>
@@ -456,6 +457,7 @@
       if (p && p.catch) {
         p.catch(() => canvas.requestPointerLock());
       }
+      canvas.focus();
       log('look mode ON');
     }
 
@@ -468,6 +470,11 @@
       lookModeBtn.classList.remove('active');
       hudLookKey.classList.remove('on');
       setStatus('● F to look · WASD to move', false, false);
+
+      // ─── پاک کردن کلیدها ───
+      keys.clear();
+      shiftHeld = false;
+      spaceHeld = false;
 
       if (pointerLocked) {
         document.exitPointerLock?.();
@@ -493,7 +500,6 @@
 
     document.addEventListener('pointerlockerror', () => {
       log('pointerlock error');
-      // اگه pointer lock نشد، بازم lookMode بمون (با mousemove fallback)
     });
 
     // ═══════════ MESSAGES ═══════════
@@ -509,6 +515,8 @@
         applySelection(msg.ids || []);
       } else if (msg.type === 'config:resolved') {
         applySceneConfig(msg.payload);
+      } else if (msg.type === 'error') {
+        loading.textContent = 'Error: ' + msg.message;
       }
     });
 
@@ -897,7 +905,6 @@
     }
 
     function rotate(dx, dy) {
-      // ── جهت اصلاح شد ──
       camState.yaw += dx * MOUSE_SENS;
       camState.pitch -= dy * MOUSE_SENS;
       camState.pitch = Math.max(-1.55, Math.min(1.55, camState.pitch));
@@ -905,12 +912,10 @@
     }
 
     // ═══════════ INPUT ═══════════
-
-    // ═══════════ INPUT ═══════════
     function setupInput() {
       document.addEventListener('contextmenu', (e) => e.preventDefault(), { capture: true });
 
-      // ─── Wheel: توی Look Mode = سرعت هم کار می‌کنه ───
+      // ─── Wheel: توی Look Mode = سرعت ───
       canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
         camState.baseSpeed *= e.deltaY > 0 ? 0.9 : 1.1;
@@ -918,7 +923,7 @@
         setStatus('● Speed: ' + camState.baseSpeed.toFixed(2), true);
       }, { passive: false });
 
-      // ─── LMB: فوکوس (توی Look Mode کلیک = pick هم می‌کنه که جلوگیری می‌کنیم) ───
+      // ─── LMB: فوکوس ───
       canvas.addEventListener('mousedown', (e) => {
         if (e.button === 0 && !lookMode) canvas.focus();
       });
@@ -930,7 +935,7 @@
         rotate(e.movementX, e.movementY);
       });
 
-      // ─── fallback: اگه Pointer Lock نشد، با اختلاف موقعیت ───
+      // ─── fallback ───
       let fallbackX = 0, fallbackY = 0;
       window.addEventListener('mousemove', (e) => {
         if (!lookMode) return;
@@ -947,7 +952,7 @@
         toggleLookMode();
       });
 
-      // ─── کلیک روی canvas توی Look Mode: چیزی نکن ───
+      // ─── کلیک روی canvas توی Look Mode: فقط فوکوس ───
       canvas.addEventListener('mousedown', (e) => {
         if (lookMode) e.preventDefault();
       }, { capture: true });
@@ -958,7 +963,7 @@
 
         const code = e.code;
 
-        // F: toggle look mode
+        // F: toggle look mode — همیشه فعال
         if (code === 'KeyF') {
           e.preventDefault();
           e.stopPropagation();
@@ -966,7 +971,7 @@
           return;
         }
 
-        // Delete / Backspace: حذف انتخاب‌شده‌ها
+        // Delete / Backspace: حذف انتخاب‌شده‌ها — همیشه فعال
         if (code === 'Delete' || code === 'Backspace') {
           if (selectedIds.length > 0) {
             e.preventDefault();
@@ -978,16 +983,27 @@
           return;
         }
 
+        // Esc: خروج از look یا deselect
+        if (code === 'Escape') {
+          if (lookMode) exitLookMode();
+          else vscode.postMessage({ type: 'select', ids: [] });
+          return;
+        }
+
         // Ctrl/Cmd + D: Duplicate
         if ((e.ctrlKey || e.metaKey) && code === 'KeyD') {
           if (selectedIds.length > 0) {
             e.preventDefault();
             e.stopPropagation();
-            // چون logic در host هست، فقط یه پیام می‌فرستیم
-            // (برای فاز ۱ از command palette یا tree استفاده کن)
+            for (const id of selectedIds) {
+              vscode.postMessage({ type: 'duplicate:node', nodeId: id });
+            }
           }
           return;
         }
+
+        // ─── از اینجا به بعد فقط توی Look Mode ───
+        if (!lookMode) return;
 
         const handled =
           code === 'KeyW' || code === 'KeyA' || code === 'KeyS' || code === 'KeyD' ||
@@ -1006,25 +1022,19 @@
         keys.add(code);
         if (code === 'ShiftLeft' || code === 'ShiftRight') shiftHeld = true;
         if (code === 'Space') spaceHeld = true;
-
-        if (e.ctrlKey || e.metaKey) {
-          if (code === 'KeyG') { setTransformMode('move'); e.preventDefault(); }
-          if (code === 'KeyR') { setTransformMode('rotate'); e.preventDefault(); }
-          if (code === 'KeyT') { setTransformMode('scale'); e.preventDefault(); }
-        }
-
-        // Esc: اگه توی Look Mode هستیم → خروج از Look Mode، وگرنه → deselect
-        if (code === 'Escape') {
-          if (lookMode) {
-            exitLookMode();
-          } else {
-            vscode.postMessage({ type: 'select', ids: [] });
-          }
-        }
       }, { capture: true });
 
       window.addEventListener('keyup', (e) => {
         const code = e.code;
+
+        // همیشه از keys حذف کن
+        keys.delete(code);
+        if (code === 'ShiftLeft' || code === 'ShiftRight') shiftHeld = false;
+        if (code === 'Space') spaceHeld = false;
+
+        // فقط توی Look Mode جلوی default رو بگیر
+        if (!lookMode) return;
+
         if (
           code === 'KeyW' || code === 'KeyA' || code === 'KeyS' || code === 'KeyD' ||
           code === 'KeyQ' || code === 'KeyE' ||
@@ -1036,10 +1046,6 @@
           e.preventDefault();
           e.stopPropagation();
         }
-
-        keys.delete(code);
-        if (code === 'ShiftLeft' || code === 'ShiftRight') shiftHeld = false;
-        if (code === 'Space') spaceHeld = false;
       }, { capture: true });
 
       window.addEventListener('blur', () => {
@@ -1051,7 +1057,10 @@
 
     // ═══════════ UPDATE CAMERA ═══════════
     function updateCamera(dt) {
-      // چرخش با IJKL/فلش‌ها
+      // ─── حرکت فقط توی Look Mode ───
+      if (!lookMode) return;
+
+      // ─── چرخش با IJKL/فلش‌ها ───
       const lookMult = shiftHeld ? camState.sprintMult : (spaceHeld ? camState.slowMult : 1);
       const lookStep = camState.baseLookSpeed * lookMult * dt;
 
@@ -1068,6 +1077,7 @@
 
       if (keys.size === 0) return;
 
+      // ─── حرکت با WASD ───
       const moveMult = shiftHeld ? camState.sprintMult : (spaceHeld ? camState.slowMult : 1);
       const speed = camState.baseSpeed * moveMult * dt * 60;
 
@@ -1250,7 +1260,18 @@
 
         const picked = pi.pickInfo?.pickedMesh;
         const nodeId = picked ? meshToNodeId.get(picked) : null;
-        vscode.postMessage({ type: 'select', ids: nodeId ? [nodeId] : [] });
+
+        // ─── Multi-selection با Ctrl/Shift ───
+        if (pi.event.ctrlKey || pi.event.metaKey || pi.event.shiftKey) {
+          if (nodeId) {
+            const current = new Set(selectedIds);
+            if (current.has(nodeId)) current.delete(nodeId);
+            else current.add(nodeId);
+            vscode.postMessage({ type: 'select', ids: [...current] });
+          }
+        } else {
+          vscode.postMessage({ type: 'select', ids: nodeId ? [nodeId] : [] });
+        }
       });
     }
   </script>

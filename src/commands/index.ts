@@ -2,11 +2,12 @@ import * as vscode from "vscode";
 import { createDefaultGlobalConfig } from "../config/defaults";
 import { ensureGlobalConfig, getGlobalConfigUri, saveGlobalConfig, setGlobalConfig } from "../config/loader";
 import type { EditorContext } from "../editor/editor-context";
-import { DuplicateNodeCommand } from "../editor/commands";
+import { DuplicateNodeCommand, RemoveNodeCommand, RenameNodeCommand } from "../editor/commands";
 import { SceneFactory } from "../scene/factory";
 import { Serializer } from "../scene/serializer";
+import type { WeaverViewportProvider } from "../providers/viewport-provider";
 
-export function registerCommands(context: vscode.ExtensionContext, editor: EditorContext): vscode.Disposable[] {
+export function registerCommands(context: vscode.ExtensionContext, editor: EditorContext, viewport: WeaverViewportProvider): vscode.Disposable[] {
 	return [
 		// ─────────────────────────────────────────
 		// NEW SCENE
@@ -45,23 +46,14 @@ export function registerCommands(context: vscode.ExtensionContext, editor: Edito
 		vscode.commands.registerCommand("weaver.redo", () => editor.commands.redo()),
 
 		// ─────────────────────────────────────────
-		// SAVE (از menu)
+		// SAVE
 		// ─────────────────────────────────────────
 		vscode.commands.registerCommand("weaver.saveScene", async () => {
-			const activeUri = vscode.window.activeTextEditor?.document.uri;
-			if (!activeUri) {
-				vscode.window.showWarningMessage("Weaver: no active scene.");
+			const result = await viewport.saveActiveScene();
+			if (!result.ok) {
+				vscode.window.showWarningMessage(`Weaver: cannot save — ${result.reason ?? "unknown"}`);
 				return;
 			}
-			const doc = vscode.workspace.textDocuments.find((d) => d.uri.toString() === activeUri.toString());
-			if (!doc) return;
-
-			const json = Serializer.serialize(editor.scene);
-			const edit = new vscode.WorkspaceEdit();
-			edit.replace(activeUri, new vscode.Range(0, 0, doc.lineCount, 0), json);
-			await vscode.workspace.applyEdit(edit);
-			await doc.save();
-			editor.markDirty(false);
 			vscode.window.showInformationMessage("Weaver: scene saved ✓");
 		}),
 
@@ -76,8 +68,8 @@ export function registerCommands(context: vscode.ExtensionContext, editor: Edito
 		// DELETE SELECTED
 		// ─────────────────────────────────────────
 		vscode.commands.registerCommand("weaver.deleteSelected", async () => {
-			const { RemoveNodeCommand } = await import("../editor/commands");
-			for (const id of editor.selection.ids) {
+			const ids = editor.selection.ids;
+			for (const id of ids) {
 				const node = editor.scene.findNode(id);
 				if (node) await editor.commands.execute(new RemoveNodeCommand(editor.scene, node));
 			}
@@ -95,7 +87,6 @@ export function registerCommands(context: vscode.ExtensionContext, editor: Edito
 				if (!node) continue;
 				const cmd = new DuplicateNodeCommand(editor.scene, node, (src) => src.clone());
 				await editor.commands.execute(cmd);
-				// پیدا کردن clone جدید
 				const last = node.parent?.children[node.parent.children.length - 1];
 				if (last) newIds.push(last.id);
 			}
@@ -117,7 +108,6 @@ export function registerCommands(context: vscode.ExtensionContext, editor: Edito
 			});
 			if (newName === undefined) return;
 
-			const { RenameNodeCommand } = await import("../editor/commands");
 			await editor.commands.execute(new RenameNodeCommand(node, newName));
 		}),
 

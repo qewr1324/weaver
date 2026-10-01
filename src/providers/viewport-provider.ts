@@ -134,6 +134,30 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		});
 	}
 
+	/**
+	 * ذخیره‌ی فایل فعال (چه Custom Editor چه Text Editor).
+	 * از `tabGroups` استفاده می‌کنه چون `activeTextEditor` برای Custom Editorها undefined هست.
+	 */
+	async saveActiveScene(): Promise<{ ok: boolean; reason?: string }> {
+		const activeTab = vscode.window.tabGroups.activeTabGroup?.activeTab;
+		if (!activeTab) return { ok: false, reason: "no active tab" };
+
+		let uri: vscode.Uri | undefined;
+		if (activeTab.input instanceof vscode.TabInputCustom) {
+			uri = activeTab.input.uri;
+		} else if (activeTab.input instanceof vscode.TabInputText) {
+			uri = activeTab.input.uri;
+		}
+
+		if (!uri) return { ok: false, reason: "active tab is not a file" };
+
+		const doc = this.docs.get(uri.toString());
+		if (!doc) return { ok: false, reason: "scene is not open in weaver viewport" };
+
+		await doc.flushToDocument(true);
+		return { ok: true };
+	}
+
 	private async handleAddNode(doc: SceneDocument, data: any): Promise<void> {
 		const newNode = new Node(data.name);
 
@@ -166,7 +190,6 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		const cmd = new DuplicateNodeCommand(doc.scene, node, (src) => src.clone());
 		await this.editor.commands.execute(cmd);
 
-		// انتخاب کپی جدید
 		const parent = node.parent;
 		if (parent) {
 			const last = parent.children[parent.children.length - 1];
