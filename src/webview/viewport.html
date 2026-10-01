@@ -106,13 +106,6 @@
       font-size: 11px;
     }
 
-    .tb-sep {
-      width: 1px;
-      height: 18px;
-      background: #21262D;
-      margin: 0 2px;
-    }
-
     .tb-label {
       color: #6E7681;
       font-size: 10px;
@@ -179,6 +172,11 @@
       display: block;
       outline: none;
       touch-action: none;
+      cursor: default;
+    }
+
+    #renderCanvas.looking {
+      cursor: grabbing;
     }
 
     /* ═══════════ OVERLAYS ═══════════ */
@@ -256,7 +254,6 @@
   <div id="viewport">
     <!-- ═══════════ TOOLBAR ═══════════ -->
     <div id="toolbar">
-      <!-- Add Object dropdown -->
       <div class="tb-group">
         <div class="tb-dd-wrap" id="addObjWrap">
           <button class="tb-btn" id="addObjBtn" title="Add Object">
@@ -267,22 +264,18 @@
         </div>
       </div>
 
-      <!-- Transform modes -->
       <div class="tb-group" id="transformGroup">
         <span class="tb-label">Gizmo</span>
       </div>
 
-      <!-- Reference space -->
       <div class="tb-group" id="refGroup">
         <span class="tb-label">Space</span>
       </div>
 
-      <!-- Shader -->
       <div class="tb-group" id="shaderGroup">
         <span class="tb-label">View</span>
       </div>
 
-      <!-- Snap -->
       <div class="tb-group" id="snapGroup">
         <span class="tb-label">Snap</span>
       </div>
@@ -292,14 +285,15 @@
     <div id="canvas-wrap">
       <div id="hud">
         <b>Weaver Viewport</b><br />
-        <span class="k">➡️⬅️⬇️⬆️</span> look &nbsp; <span class="k">WASD</span> move &nbsp; <span class="k">Q/E</span>
-        down/up<br />
+        <span class="k">RMB (hold)</span> look &nbsp; <span class="k">IJKL</span>/<span class="k">Arrows</span>
+        look<br />
+        <span class="k">WASD</span> move &nbsp; <span class="k">Q/E</span> down/up<br />
         <span class="k">Shift</span> fast &nbsp; <span class="k">Space</span> slow &nbsp; <span class="k">Wheel</span>
         speed<br />
         <span class="k">LMB</span> select &nbsp; <span class="k">Esc</span> deselect
       </div>
       <div id="fps">-- FPS</div>
-      <div id="status" class="off">● ➡️⬅️⬇️⬆️ to look · WASD to move</div>
+      <div id="status" class="off">● RMB to look · WASD to move</div>
       <div id="loading">Loading Babylon…</div>
       <canvas id="renderCanvas" tabindex="0"></canvas>
     </div>
@@ -331,13 +325,12 @@
     let selectedIds = [];
     let hoveredMesh = null;
 
-    let config = null;              // از extension میاد
+    let config = null;
 
-    // تنظیمات جاری editor
     const editor = {
-      transformMode: 'move',        // move | rotate | scale
-      referenceMode: 'world',       // world | object
-      shaderMode: 'solid',          // solid | wireframe | both
+      transformMode: 'move',
+      referenceMode: 'world',
+      shaderMode: 'solid',
       snapGrid: false,
       snapGridSize: 0.5,
       snapObject: false,
@@ -356,6 +349,12 @@
     let shiftHeld = false;
     let spaceHeld = false;
 
+    // ─── RMB look state ───
+    let rmbHeld = false;
+    let lastMouseX = 0;
+    let lastMouseY = 0;
+    const MOUSE_SENS = 0.0035;
+
     let HOVER_COLOR = new BABYLON.Color3(0.4, 0.75, 1.0);
     let SELECT_COLOR = new BABYLON.Color3(1.0, 0.6, 0.15);
 
@@ -366,54 +365,21 @@
       statusEl.classList.toggle('off', !active);
     }
 
-    // ═══════════ MESSAGE: config میاد ═══════════
+    // ═══════════ MESSAGES ═══════════
     window.addEventListener('message', (e) => {
       const msg = e.data;
-      if (msg.type === 'config') {
-        config = msg.payload;
-        applyConfig();
-        buildToolbar();
-      } else if (msg.type === 'scene:update') {
-        if (scene) rebuildScene(msg.payload);
+
+      if (msg.type === 'scene:update') {
+        if (scene) {
+          if (msg.payload.config) applySceneConfig(msg.payload.config);
+          rebuildScene(msg.payload);
+        }
       } else if (msg.type === 'selection:update') {
         applySelection(msg.ids || []);
+      } else if (msg.type === 'config:resolved') {
+        applySceneConfig(msg.payload);
       }
     });
-
-    function applyConfig() {
-      if (!config) return;
-
-      // رنگ‌ها
-      if (config.highlights?.hover) {
-        HOVER_COLOR = new BABYLON.Color3(
-          config.highlights.hover.r,
-          config.highlights.hover.g,
-          config.highlights.hover.b
-        );
-      }
-      if (config.highlights?.selected) {
-        SELECT_COLOR = new BABYLON.Color3(
-          config.highlights.selected.r,
-          config.highlights.selected.g,
-          config.highlights.selected.b
-        );
-      }
-
-      // دوربین
-      if (config.camera) {
-        camState.baseSpeed = config.camera.baseSpeed ?? camState.baseSpeed;
-        camState.baseLookSpeed = config.camera.baseLookSpeed ?? camState.baseLookSpeed;
-        camState.sprintMult = config.camera.sprintMult ?? camState.sprintMult;
-        camState.slowMult = config.camera.slowMult ?? camState.slowMult;
-      }
-
-      // snap
-      if (config.toolbar?.snap) {
-        editor.snapGrid = config.toolbar.snap.grid?.default ?? false;
-        editor.snapGridSize = config.toolbar.snap.grid?.size ?? 0.5;
-        editor.snapObject = config.toolbar.snap.object?.default ?? false;
-      }
-    }
 
     // ═══════════ INIT ═══════════
     window.addEventListener('load', () => {
@@ -477,61 +443,160 @@
       vscode.postMessage({ type: 'ready' });
     });
 
-    // ═══════════ TOOLBAR BUILD ═══════════
+    // ═══════════ CONFIG ═══════════
+    const DEFAULT_CONFIG = {
+      toolbar: {
+        enabled: { addObjects: true, transformModes: true, referenceModes: true, shaderModes: true, snap: true },
+        transformMode: 'move',
+        referenceMode: 'world',
+        shaderMode: 'solid',
+        snapGrid: false,
+        snapGridSize: 0.5,
+        snapObject: false,
+        addObjects: [],
+        transformModes: [],
+        referenceModes: [],
+        shaderModes: [],
+      },
+      camera: { baseSpeed: 0.35, baseLookSpeed: 1.8, sprintMult: 4, slowMult: 0.25 },
+      highlights: {
+        hover: { r: 0.40, g: 0.75, b: 1.00 },
+        selected: { r: 1.00, g: 0.60, b: 0.15 },
+      },
+      gizmo: { scaleRatio: 1.0 },
+    };
+
+    function applySceneConfig(raw) {
+      if (!raw) return;
+
+      config = {
+        toolbar: { ...DEFAULT_CONFIG.toolbar, ...(raw.toolbar || {}) },
+        camera: { ...DEFAULT_CONFIG.camera, ...(raw.camera || {}) },
+        highlights: {
+          hover: { ...DEFAULT_CONFIG.highlights.hover, ...(raw.highlights?.hover || {}) },
+          selected: { ...DEFAULT_CONFIG.highlights.selected, ...(raw.highlights?.selected || {}) },
+        },
+        gizmo: { ...DEFAULT_CONFIG.gizmo, ...(raw.gizmo || {}) },
+      };
+      config.toolbar.enabled = { ...DEFAULT_CONFIG.toolbar.enabled, ...(raw.toolbar?.enabled || {}) };
+
+      HOVER_COLOR = new BABYLON.Color3(config.highlights.hover.r, config.highlights.hover.g, config.highlights.hover.b);
+      SELECT_COLOR = new BABYLON.Color3(config.highlights.selected.r, config.highlights.selected.g, config.highlights.selected.b);
+
+      camState.baseSpeed = config.camera.baseSpeed;
+      camState.baseLookSpeed = config.camera.baseLookSpeed;
+      camState.sprintMult = config.camera.sprintMult;
+      camState.slowMult = config.camera.slowMult;
+
+      editor.transformMode = config.toolbar.transformMode || 'move';
+      editor.referenceMode = config.toolbar.referenceMode || 'world';
+      editor.shaderMode = config.toolbar.shaderMode || 'solid';
+      editor.snapGrid = config.toolbar.snapGrid ?? false;
+      editor.snapGridSize = config.toolbar.snapGridSize ?? 0.5;
+      editor.snapObject = config.toolbar.snapObject ?? false;
+
+      if (gizmoManager) {
+        const ratio = config.gizmo.scaleRatio;
+        if (gizmoManager.gizmos.positionGizmo) gizmoManager.gizmos.positionGizmo.scaleRatio = ratio;
+        if (gizmoManager.gizmos.rotationGizmo) gizmoManager.gizmos.rotationGizmo.scaleRatio = ratio;
+        if (gizmoManager.gizmos.scaleGizmo) gizmoManager.gizmos.scaleGizmo.scaleRatio = ratio;
+      }
+
+      buildToolbar();
+    }
+
+    // ═══════════ TOOLBAR ═══════════
+    function clearGroup(group, keepLabels) {
+      const kids = Array.from(group.children);
+      for (const k of kids) {
+        if (keepLabels && k.classList.contains('tb-label')) continue;
+        group.removeChild(k);
+      }
+    }
+
     function buildToolbar() {
       if (!config) return;
 
-      // ── Add Object dropdown ──
-      addObjMenu.innerHTML = '';
-      for (const item of config.toolbar.addObjects) {
-        const el = document.createElement('div');
-        el.className = 'tb-dd-item';
-        el.innerHTML = '<span class="icon">' + item.icon + '</span>' + item.label;
-        el.addEventListener('click', () => {
-          addObject(item.geometry);
-          addObjWrap.classList.remove('open');
-        });
-        addObjMenu.appendChild(el);
+      clearGroup(addObjWrap);
+      clearGroup(transformGroup, true);
+      clearGroup(refGroup, true);
+      clearGroup(shaderGroup, true);
+      clearGroup(snapGroup, true);
+
+      const en = config.toolbar.enabled;
+
+      // Add Object
+      if (en.addObjects) {
+        addObjWrap.style.display = '';
+        addObjMenu.innerHTML = '';
+        for (const item of config.toolbar.addObjects || []) {
+          const el = document.createElement('div');
+          el.className = 'tb-dd-item';
+          el.innerHTML = '<span class="icon">' + item.icon + '</span>' + item.label;
+          el.addEventListener('click', () => {
+            addObject(item.geometry);
+            addObjWrap.classList.remove('open');
+          });
+          addObjMenu.appendChild(el);
+        }
+        addObjBtn.onclick = (e) => {
+          e.stopPropagation();
+          addObjWrap.classList.toggle('open');
+        };
+      } else {
+        addObjWrap.style.display = 'none';
       }
 
-      addObjBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        addObjWrap.classList.toggle('open');
-      });
-
-      document.addEventListener('click', () => addObjWrap.classList.remove('open'));
-
-      // ── Transform modes ──
-      for (const m of config.toolbar.transformModes) {
-        const btn = makeButton(m.icon, m.label, () => setTransformMode(m.id), m.id === editor.transformMode);
-        btn.dataset.mode = m.id;
-        transformGroup.appendChild(btn);
+      // Transform modes
+      if (en.transformModes) {
+        transformGroup.style.display = '';
+        for (const m of config.toolbar.transformModes || []) {
+          const btn = makeButton(m.icon, m.label, () => setTransformMode(m.id), m.id === editor.transformMode);
+          btn.dataset.mode = m.id;
+          transformGroup.appendChild(btn);
+        }
+      } else {
+        transformGroup.style.display = 'none';
       }
 
-      // ── Reference modes ──
-      for (const m of config.toolbar.referenceModes) {
-        const btn = makeButton(m.icon, m.label, () => setReferenceMode(m.id), m.id === editor.referenceMode);
-        btn.dataset.mode = m.id;
-        refGroup.appendChild(btn);
+      // Reference modes
+      if (en.referenceModes) {
+        refGroup.style.display = '';
+        for (const m of config.toolbar.referenceModes || []) {
+          const btn = makeButton(m.icon, m.label, () => setReferenceMode(m.id), m.id === editor.referenceMode);
+          btn.dataset.mode = m.id;
+          refGroup.appendChild(btn);
+        }
+      } else {
+        refGroup.style.display = 'none';
       }
 
-      // ── Shader modes ──
-      for (const m of config.toolbar.shaderModes) {
-        const btn = makeButton(m.icon, m.label, () => setShaderMode(m.id), m.id === editor.shaderMode);
-        btn.dataset.mode = m.id;
-        shaderGroup.appendChild(btn);
+      // Shader modes
+      if (en.shaderModes) {
+        shaderGroup.style.display = '';
+        for (const m of config.toolbar.shaderModes || []) {
+          const btn = makeButton(m.icon, m.label, () => setShaderMode(m.id), m.id === editor.shaderMode);
+          btn.dataset.mode = m.id;
+          shaderGroup.appendChild(btn);
+        }
+      } else {
+        shaderGroup.style.display = 'none';
       }
 
-      // ── Snap toggles ──
-      const snapGridBtn = makeButton('▦', 'Grid', () => toggleSnapGrid(), editor.snapGrid);
-      snapGridBtn.title = 'Snap to Grid (' + editor.snapGridSize + ')';
-      snapGridBtn.dataset.snap = 'grid';
+      // Snap
+      if (en.snap) {
+        snapGroup.style.display = '';
+        const snapGridBtn = makeButton('▦', 'Grid', () => toggleSnapGrid(), editor.snapGrid);
+        snapGridBtn.title = 'Snap to Grid (' + editor.snapGridSize + ')';
+        snapGridBtn.dataset.snap = 'grid';
+        snapGroup.appendChild(snapGridBtn);
 
-      const snapObjBtn = makeButton('⬡', 'Object', () => toggleSnapObject(), editor.snapObject);
-      snapObjBtn.dataset.snap = 'object';
-
-      snapGroup.appendChild(snapGridBtn);
-      snapGroup.appendChild(snapObjBtn);
+        const snapObjBtn = makeButton('⬡', 'Object', () => toggleSnapObject(), editor.snapObject);
+        snapObjBtn.dataset.snap = 'object';
+        snapGroup.appendChild(snapObjBtn);
+      } else {
+        snapGroup.style.display = 'none';
+      }
     }
 
     function makeButton(icon, label, onClick, active) {
@@ -552,13 +617,11 @@
     // ═══════════ TOOLBAR ACTIONS ═══════════
     function setTransformMode(mode) {
       editor.transformMode = mode;
-
       if (!gizmoManager) return;
       gizmoManager.positionGizmoEnabled = mode === 'move';
       gizmoManager.rotationGizmoEnabled = mode === 'rotate';
       gizmoManager.scaleGizmoEnabled = mode === 'scale';
 
-      // تنظیمات بعد از toggle
       if (gizmoManager.gizmos.positionGizmo) {
         gizmoManager.gizmos.positionGizmo.updateGizmoRotationToMatchAttachedMesh = (editor.referenceMode === 'object');
         gizmoManager.gizmos.positionGizmo.updateGizmoPositionToMatchAttachedMesh = true;
@@ -570,38 +633,28 @@
         gizmoManager.gizmos.scaleGizmo.updateGizmoRotationToMatchAttachedMesh = (editor.referenceMode === 'object');
       }
 
-      // Re-attach
       if (selectedIds.length > 0) attachGizmoTo(selectedIds[0]);
-
       setActiveInGroup(transformGroup, mode);
       setStatus('● Transform: ' + mode, true);
     }
 
     function setReferenceMode(mode) {
       editor.referenceMode = mode;
-      setTransformMode(editor.transformMode); // re-apply
+      setTransformMode(editor.transformMode);
       setActiveInGroup(refGroup, mode);
       setStatus('● Space: ' + mode, true);
     }
 
     function setShaderMode(mode) {
       editor.shaderMode = mode;
-
       scene.meshes.forEach((m) => {
         if (!m.material || m.name === '__grid') return;
-        if (m.name.endsWith('_g')) return; // light/camera gizmo
+        if (m.name.endsWith('_g')) return;
         if (m.material.wireframe !== undefined) {
-          m.material.wireframe = (mode === 'wireframe');
+          m.material.wireframe = (mode === 'wireframe' || mode === 'both');
         }
-        // "both": وایرفریم + solid → wireframe روی solid
-        if (mode === 'both') {
-          m.material.wireframe = true;
-          m.material.alpha = 0.85;
-        } else {
-          m.material.alpha = 1;
-        }
+        m.material.alpha = (mode === 'both') ? 0.85 : 1;
       });
-
       setActiveInGroup(shaderGroup, mode);
       setStatus('● View: ' + mode, true);
     }
@@ -618,66 +671,6 @@
       const btn = snapGroup.querySelector('[data-snap="object"]');
       if (btn) btn.classList.toggle('active', editor.snapObject);
       setStatus('● Snap Object: ' + (editor.snapObject ? 'ON' : 'OFF'), true);
-    }
-
-    // ═══════════ SNAP LOGIC ═══════════
-    let snapWasActive = false;
-
-    function applySnap() {
-      const mesh = selectedIds[0] ? nodeIdToMesh.get(selectedIds[0]) : null;
-      if (!mesh || !mesh.getClassName || !mesh.getClassName().includes('Mesh')) return;
-
-      const gizmoActive = gizmoManager && (
-        gizmoManager.gizmos.positionGizmo?.isHovered ||
-        gizmoManager.gizmos.positionGizmo?.isDragging ||
-        gizmoManager.gizmos.rotationGizmo?.isHovered ||
-        gizmoManager.gizmos.rotationGizmo?.isDragging ||
-        gizmoManager.gizmos.scaleGizmo?.isHovered ||
-        gizmoManager.gizmos.scaleGizmo?.isDragging
-      );
-
-      if (!gizmoActive) return;
-
-      // Snap to grid
-      if (editor.snapGrid) {
-        const g = editor.snapGridSize;
-        mesh.position.x = Math.round(mesh.position.x / g) * g;
-        mesh.position.y = Math.round(mesh.position.y / g) * g;
-        mesh.position.z = Math.round(mesh.position.z / g) * g;
-      }
-
-      // Snap to object (ساده: نزدیک‌ترین mesh دیگه)
-      if (editor.snapObject) {
-        const threshold = config?.toolbar?.snap?.object?.threshold ?? 0.3;
-        for (const other of scene.meshes) {
-          if (other === mesh) continue;
-          if (other.name === '__grid') continue;
-          if (!meshToNodeId.has(other)) continue;
-
-          const d = BABYLON.Vector3.Distance(mesh.position, other.position);
-          if (d < threshold) {
-            mesh.position.copyFrom(other.position);
-            break;
-          }
-        }
-      }
-
-      // Sync back به extension
-      if (!snapWasActive) {
-        snapWasActive = true;
-        const nodeId = meshToNodeId.get(mesh);
-        if (nodeId) {
-          vscode.postMessage({
-            type: 'update:transform',
-            nodeId,
-            channel: 'position',
-            axis: 'x',
-            value: mesh.position.x,
-          });
-        }
-      } else {
-        snapWasActive = false;
-      }
     }
 
     // ═══════════ ADD OBJECT ═══════════
@@ -717,12 +710,8 @@
         gizmoManager.gizmos.positionGizmo.updateGizmoPositionToMatchAttachedMesh = true;
         gizmoManager.gizmos.positionGizmo.scaleRatio = ratio;
       }
-      if (gizmoManager.gizmos.rotationGizmo) {
-        gizmoManager.gizmos.rotationGizmo.scaleRatio = ratio;
-      }
-      if (gizmoManager.gizmos.scaleGizmo) {
-        gizmoManager.gizmos.scaleGizmo.scaleRatio = ratio;
-      }
+      if (gizmoManager.gizmos.rotationGizmo) gizmoManager.gizmos.rotationGizmo.scaleRatio = ratio;
+      if (gizmoManager.gizmos.scaleGizmo) gizmoManager.gizmos.scaleGizmo.scaleRatio = ratio;
     }
 
     function attachGizmoTo(nodeId) {
@@ -750,10 +739,22 @@
       camera.setTarget(camera.position.add(dir));
     }
 
+    function rotate(dx, dy) {
+      camState.yaw -= dx * MOUSE_SENS;
+      camState.pitch -= dy * MOUSE_SENS;
+      camState.pitch = Math.max(-1.55, Math.min(1.55, camState.pitch));
+      applyRotation();
+    }
+
     // ═══════════ INPUT ═══════════
     function setupInput() {
-      document.addEventListener('contextmenu', (e) => e.preventDefault(), { capture: true });
+      // جلوگیری از منوی راست‌کلیک
+      document.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }, { capture: true });
 
+      // ─── Wheel = speed ───
       canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
         camState.baseSpeed *= e.deltaY > 0 ? 0.9 : 1.1;
@@ -761,10 +762,44 @@
         setStatus('● Speed: ' + camState.baseSpeed.toFixed(2), true);
       }, { passive: false });
 
+      // ─── LMB: فوکوس ───
       canvas.addEventListener('mousedown', (e) => {
         if (e.button === 0) canvas.focus();
       });
 
+      // ─── RMB: شروع چرخش ───
+      window.addEventListener('mousedown', (e) => {
+        if (e.button !== 2) return;
+        // اگه روی HUD/Toolbar نیستیم
+        if (e.target.closest && e.target.closest('#toolbar')) return;
+
+        e.preventDefault();
+        rmbHeld = true;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        canvas.classList.add('looking');
+        setStatus('● LOOK MODE', true);
+      }, { capture: true });
+
+      // ─── RMB: پایان چرخش ───
+      window.addEventListener('mouseup', (e) => {
+        if (e.button !== 2) return;
+        rmbHeld = false;
+        canvas.classList.remove('looking');
+        setStatus('● RMB to look · WASD to move', false);
+      }, { capture: true });
+
+      // ─── mousemove: چرخش با RMB ───
+      window.addEventListener('mousemove', (e) => {
+        if (!rmbHeld) return;
+        const dx = e.clientX - lastMouseX;
+        const dy = e.clientY - lastMouseY;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        rotate(dx, dy);
+      });
+
+      // ─── کیبورد ───
       window.addEventListener('keydown', (e) => {
         if (e.target && e.target.tagName === 'INPUT') return;
 
@@ -787,7 +822,7 @@
         if (code === 'ShiftLeft' || code === 'ShiftRight') shiftHeld = true;
         if (code === 'Space') spaceHeld = true;
 
-        // hotkeys for transform modes (Ctrl+G/R/S)
+        // hotkeys (Ctrl+G/R/T)
         if (e.ctrlKey || e.metaKey) {
           if (code === 'KeyG') { setTransformMode('move'); e.preventDefault(); }
           if (code === 'KeyR') { setTransformMode('rotate'); e.preventDefault(); }
@@ -818,15 +853,19 @@
         if (code === 'Space') spaceHeld = false;
       }, { capture: true });
 
+      // ─── blur: پاک‌سازی ───
       window.addEventListener('blur', () => {
         keys.clear();
         shiftHeld = false;
         spaceHeld = false;
+        rmbHeld = false;
+        canvas.classList.remove('looking');
       });
     }
 
     // ═══════════ UPDATE CAMERA ═══════════
     function updateCamera(dt) {
+      // ─── چرخش با کیبورد ───
       const lookMult = shiftHeld ? camState.sprintMult : (spaceHeld ? camState.slowMult : 1);
       const lookStep = camState.baseLookSpeed * lookMult * dt;
 
@@ -841,6 +880,7 @@
         applyRotation();
       }
 
+      // ─── حرکت ───
       if (keys.size === 0) return;
 
       const moveMult = shiftHeld ? camState.sprintMult : (spaceHeld ? camState.slowMult : 1);
@@ -860,6 +900,43 @@
       if (move.lengthSquared() > 0) {
         move.normalize().scaleInPlace(speed);
         camera.position.addInPlace(move);
+      }
+    }
+
+    // ═══════════ SNAP ═══════════
+    function applySnap() {
+      const mesh = selectedIds[0] ? nodeIdToMesh.get(selectedIds[0]) : null;
+      if (!mesh || !mesh.getClassName || !mesh.getClassName().includes('Mesh')) return;
+
+      const gizmoActive = gizmoManager && (
+        gizmoManager.gizmos.positionGizmo?.isHovered ||
+        gizmoManager.gizmos.positionGizmo?.isDragging ||
+        gizmoManager.gizmos.rotationGizmo?.isHovered ||
+        gizmoManager.gizmos.rotationGizmo?.isDragging ||
+        gizmoManager.gizmos.scaleGizmo?.isHovered ||
+        gizmoManager.gizmos.scaleGizmo?.isDragging
+      );
+      if (!gizmoActive) return;
+
+      if (editor.snapGrid) {
+        const g = editor.snapGridSize;
+        mesh.position.x = Math.round(mesh.position.x / g) * g;
+        mesh.position.y = Math.round(mesh.position.y / g) * g;
+        mesh.position.z = Math.round(mesh.position.z / g) * g;
+      }
+
+      if (editor.snapObject) {
+        const threshold = config?.toolbar?.snap?.object?.threshold ?? 0.3;
+        for (const other of scene.meshes) {
+          if (other === mesh) continue;
+          if (other.name === '__grid') continue;
+          if (!meshToNodeId.has(other)) continue;
+          const d = BABYLON.Vector3.Distance(mesh.position, other.position);
+          if (d < threshold) {
+            mesh.position.copyFrom(other.position);
+            break;
+          }
+        }
       }
     }
 
@@ -938,11 +1015,8 @@
       selectedIds = ids || [];
       if (!highlightLayer) return;
       refreshHighlights();
-      if (selectedIds.length > 0) {
-        attachGizmoTo(selectedIds[0]);
-      } else {
-        detachGizmo();
-      }
+      if (selectedIds.length > 0) attachGizmoTo(selectedIds[0]);
+      else detachGizmo();
     }
 
     function refreshHighlights() {
@@ -966,6 +1040,8 @@
       scene.onPointerObservable.add((pi) => {
         if (pi.type !== BABYLON.PointerEventTypes.POINTERMOVE) return;
         if (!scene) return;
+        // اگه RMB پایین باشه، hover رو آپدیت نکن (چون داریم می‌چرخونیم)
+        if (rmbHeld) return;
 
         const pick = scene.pick(scene.pointerX, scene.pointerY, (m) => {
           if (!m || !m.isPickable) return false;
@@ -986,6 +1062,7 @@
       scene.onPointerObservable.add((pi) => {
         if (pi.type !== BABYLON.PointerEventTypes.POINTERPICK) return;
         if (pi.event.button !== 0) return;
+        if (rmbHeld) return;
 
         const picked = pi.pickInfo?.pickedMesh;
         const nodeId = picked ? meshToNodeId.get(picked) : null;

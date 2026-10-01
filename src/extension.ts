@@ -1,13 +1,11 @@
 // src/extension.ts — Weaver Engine (single file)
 import * as vscode from "vscode";
-import * as path from "node:path";
 import * as fs from "node:fs";
 
 // ═══════════════════════════════════════════════════════════════
 // CORE LAYER
 // ═══════════════════════════════════════════════════════════════
 
-// ─── EventBus ──────────────────────────────────────────────────
 type EventMap = Record<string, unknown>;
 type EventHandler<T> = (payload: T) => void;
 type Unsubscribe = () => void;
@@ -23,14 +21,6 @@ class EventBus<TEvents extends EventMap> {
 		}
 		set.add(handler as EventHandler<unknown>);
 		return () => this.off(event, handler);
-	}
-
-	once<K extends keyof TEvents>(event: K, handler: EventHandler<TEvents[K]>): Unsubscribe {
-		const unsub = this.on(event, (payload) => {
-			unsub();
-			handler(payload);
-		});
-		return unsub;
 	}
 
 	off<K extends keyof TEvents>(event: K, handler: EventHandler<TEvents[K]>): void {
@@ -57,7 +47,6 @@ class EventBus<TEvents extends EventMap> {
 	}
 }
 
-// ─── Disposable ────────────────────────────────────────────────
 interface IDisposable {
 	dispose(): void;
 	readonly disposed: boolean;
@@ -69,7 +58,6 @@ class DisposableStore implements IDisposable {
 	get disposed(): boolean {
 		return this._disposed;
 	}
-
 	add<T extends IDisposable>(item: T): T {
 		if (this._disposed) {
 			item.dispose();
@@ -78,12 +66,6 @@ class DisposableStore implements IDisposable {
 		this.items.push(item);
 		return item;
 	}
-
-	remove(item: IDisposable): void {
-		const idx = this.items.indexOf(item);
-		if (idx >= 0) this.items.splice(idx, 1);
-	}
-
 	dispose(): void {
 		if (this._disposed) return;
 		this._disposed = true;
@@ -104,11 +86,9 @@ abstract class Disposable implements IDisposable {
 	get disposed(): boolean {
 		return this._disposed;
 	}
-
 	protected register<T extends IDisposable>(item: T): T {
 		return this._store.add(item);
 	}
-
 	dispose(): void {
 		if (this._disposed) return;
 		this._disposed = true;
@@ -116,7 +96,6 @@ abstract class Disposable implements IDisposable {
 	}
 }
 
-// ─── Logger ────────────────────────────────────────────────────
 enum LogLevel {
 	Debug = 0,
 	Info = 1,
@@ -130,9 +109,7 @@ class Logger {
 	static setLevel(level: LogLevel): void {
 		Logger.globalLevel = level;
 	}
-
 	constructor(private readonly scope: string) {}
-
 	private log(level: LogLevel, method: "log" | "warn" | "error", args: unknown[]): void {
 		if (level < Logger.globalLevel) return;
 		console[method](`[Weaver:${this.scope}]`, ...args);
@@ -151,35 +128,224 @@ class Logger {
 	}
 }
 
+const log = new Logger("Extension");
+
 // ═══════════════════════════════════════════════════════════════
-// CONFIG LAYER
+// CONFIG LAYER — single source of truth (global + scene override)
 // ═══════════════════════════════════════════════════════════════
 
 interface WeaverConfig {
 	version: string;
 	toolbar: {
+		enabled: {
+			addObjects: boolean;
+			transformModes: boolean;
+			referenceModes: boolean;
+			shaderModes: boolean;
+			snap: boolean;
+		};
 		addObjects: Array<{ id: string; label: string; icon: string; geometry: string }>;
 		transformModes: Array<{ id: string; label: string; icon: string; key?: string }>;
 		referenceModes: Array<{ id: string; label: string; icon: string }>;
 		shaderModes: Array<{ id: string; label: string; icon: string }>;
+		transformMode?: "move" | "rotate" | "scale";
+		referenceMode?: "world" | "object";
+		shaderMode?: "solid" | "wireframe" | "both";
 		snap: {
 			grid: { default: boolean; size: number; sizes: number[] };
 			object: { default: boolean; threshold: number };
 		};
+		snapGrid?: boolean;
+		snapGridSize?: number;
+		snapObject?: boolean;
 	};
-	gizmo: { scaleRatio: number; alwaysOnTop: boolean; snapDistance: number };
-	camera: { baseSpeed: number; baseLookSpeed: number; sprintMult: number; slowMult: number };
+	camera: {
+		fov: number;
+		minZ: number;
+		maxZ: number;
+		baseSpeed: number;
+		baseLookSpeed: number;
+		sprintMult: number;
+		slowMult: number;
+	};
 	highlights: {
 		hover: { r: number; g: number; b: number };
 		selected: { r: number; g: number; b: number };
 	};
+	gizmo: {
+		scaleRatio: number;
+		alwaysOnTop: boolean;
+		snapDistance: number;
+	};
+	scene: {
+		clearColor: { r: number; g: number; b: number; a: number };
+		grid: {
+			enabled: boolean;
+			size: number;
+			majorUnit: number;
+			minorVisibility: number;
+			mainColor: { r: number; g: number; b: number };
+			lineColor: { r: number; g: number; b: number };
+		};
+		lights: {
+			sun: { intensity: number; direction: { x: number; y: number; z: number } };
+			ambient: { intensity: number };
+		};
+	};
+	defaults: {
+		meshMaterial: { color: string; metallic: number; roughness: number };
+		nodeName: string;
+		sceneName: string;
+	};
+}
+
+// ─── deep merge ────────────────────────────────────────────────
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+	return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+function deepMerge<T>(base: T, override: unknown): T {
+	if (!isPlainObject(base) || !isPlainObject(override)) {
+		return (override === undefined ? base : override) as T;
+	}
+	const out: Record<string, unknown> = { ...base };
+	for (const key of Object.keys(override)) {
+		const b = (base as Record<string, unknown>)[key];
+		const o = (override as Record<string, unknown>)[key];
+		if (isPlainObject(b) && isPlainObject(o)) {
+			out[key] = deepMerge(b, o);
+		} else if (o !== undefined) {
+			out[key] = o;
+		}
+	}
+	return out as T;
+}
+
+// ─── default global config ─────────────────────────────────────
+function createDefaultGlobalConfig(): WeaverConfig {
+	return {
+		version: "1.0.0",
+		toolbar: {
+			enabled: {
+				addObjects: true,
+				transformModes: true,
+				referenceModes: true,
+				shaderModes: true,
+				snap: true,
+			},
+			addObjects: [
+				{ id: "box", label: "Box", icon: "▣", geometry: "box" },
+				{ id: "sphere", label: "Sphere", icon: "●", geometry: "sphere" },
+				{ id: "plane", label: "Plane", icon: "▭", geometry: "plane" },
+				{ id: "cylinder", label: "Cylinder", icon: "▮", geometry: "cylinder" },
+				{ id: "torus", label: "Torus", icon: "◯", geometry: "torus" },
+			],
+			transformModes: [
+				{ id: "move", label: "Move", icon: "✥", key: "KeyG" },
+				{ id: "rotate", label: "Rotate", icon: "↻", key: "KeyR" },
+				{ id: "scale", label: "Scale", icon: "⤢", key: "KeyT" },
+			],
+			referenceModes: [
+				{ id: "world", label: "World", icon: "🌐" },
+				{ id: "object", label: "Object", icon: "📦" },
+			],
+			shaderModes: [
+				{ id: "solid", label: "Solid", icon: "■" },
+				{ id: "wireframe", label: "Wireframe", icon: "▦" },
+				{ id: "both", label: "Both", icon: "◨" },
+			],
+			transformMode: "move",
+			referenceMode: "world",
+			shaderMode: "solid",
+			snap: {
+				grid: { default: false, size: 0.5, sizes: [0.1, 0.25, 0.5, 1.0] },
+				object: { default: false, threshold: 0.3 },
+			},
+			snapGrid: false,
+			snapGridSize: 0.5,
+			snapObject: false,
+		},
+		camera: {
+			fov: 0.9,
+			minZ: 0.05,
+			maxZ: 5000,
+			baseSpeed: 0.35,
+			baseLookSpeed: 1.8,
+			sprintMult: 4,
+			slowMult: 0.25,
+		},
+		highlights: {
+			hover: { r: 0.4, g: 0.75, b: 1.0 },
+			selected: { r: 1.0, g: 0.6, b: 0.15 },
+		},
+		gizmo: {
+			scaleRatio: 1.0,
+			alwaysOnTop: true,
+			snapDistance: 0.1,
+		},
+		scene: {
+			clearColor: { r: 0.15, g: 0.18, b: 0.24, a: 1 },
+			grid: {
+				enabled: true,
+				size: 100,
+				majorUnit: 10,
+				minorVisibility: 0.35,
+				mainColor: { r: 0.3, g: 0.33, b: 0.4 },
+				lineColor: { r: 0.5, g: 0.52, b: 0.6 },
+			},
+			lights: {
+				sun: { intensity: 1.2, direction: { x: -0.5, y: -1, z: -0.3 } },
+				ambient: { intensity: 0.8 },
+			},
+		},
+		defaults: {
+			meshMaterial: { color: "#6B46C1", metallic: 0.2, roughness: 0.6 },
+			nodeName: "Node",
+			sceneName: "Untitled Scene",
+		},
+	};
+}
+
+// ─── global config (توی پوشه کاربر) ────────────────────────────
+const CONFIG_FILENAME = "weaver.config.json";
+let GLOBAL_CONFIG: WeaverConfig | null = null;
+
+function getGlobalConfigUri(context: vscode.ExtensionContext): vscode.Uri {
+	return vscode.Uri.joinPath(context.globalStorageUri, CONFIG_FILENAME);
+}
+
+async function ensureGlobalConfig(context: vscode.ExtensionContext): Promise<WeaverConfig> {
+	const uri = getGlobalConfigUri(context);
+
+	try {
+		await vscode.workspace.fs.createDirectory(context.globalStorageUri);
+	} catch {
+		/* ignore */
+	}
+
+	try {
+		const raw = await vscode.workspace.fs.readFile(uri);
+		const parsed = JSON.parse(new TextDecoder().decode(raw)) as WeaverConfig;
+		log.info("global config loaded from " + uri.fsPath);
+		return parsed;
+	} catch {
+		log.info("global config not found — creating default at " + uri.fsPath);
+		const defaultCfg = createDefaultGlobalConfig();
+		await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(JSON.stringify(defaultCfg, null, 2)));
+		return defaultCfg;
+	}
+}
+
+async function saveGlobalConfig(context: vscode.ExtensionContext, cfg: WeaverConfig): Promise<void> {
+	const uri = getGlobalConfigUri(context);
+	await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(JSON.stringify(cfg, null, 2)));
+	log.info("global config saved to " + uri.fsPath);
 }
 
 // ═══════════════════════════════════════════════════════════════
 // SCENE LAYER
 // ═══════════════════════════════════════════════════════════════
 
-// ─── Transform ─────────────────────────────────────────────────
 interface Vector3Like {
 	x: number;
 	y: number;
@@ -223,7 +389,6 @@ class Transform {
 	}
 }
 
-// ─── Components ────────────────────────────────────────────────
 type ComponentType = "mesh" | "camera" | "light" | "script";
 
 interface ComponentBase {
@@ -262,7 +427,6 @@ type Component = MeshComponent | CameraComponent | LightComponent | ScriptCompon
 let componentCounter = 0;
 const nextComponentId = (): string => `cmp_${++componentCounter}_${Date.now().toString(36)}`;
 
-// ─── Node ──────────────────────────────────────────────────────
 let nodeCounter = 0;
 const nextNodeId = (): string => `node_${++nodeCounter}_${Date.now().toString(36)}`;
 
@@ -342,12 +506,14 @@ class Node {
 interface SceneData {
 	version: string;
 	name: string;
+	config?: Partial<WeaverConfig>; // ← override های صحنه
 	root: NodeData;
 }
 
 class Scene extends Disposable {
 	readonly root: Node;
 	name: string;
+	config: Partial<WeaverConfig>; // ← فقط override ها، نه کل کانفیگ
 
 	readonly bus = new EventBus<{
 		"node:added": Node;
@@ -356,9 +522,10 @@ class Scene extends Disposable {
 		"scene:changed": void;
 	}>();
 
-	constructor(name = "Untitled Scene") {
+	constructor(name = "Untitled Scene", config: Partial<WeaverConfig> = {}) {
 		super();
 		this.name = name;
+		this.config = config;
 		this.root = new Node("Root");
 	}
 
@@ -387,19 +554,29 @@ class Scene extends Disposable {
 		return null;
 	}
 
+	// کانفیگ نهایی = global + scene override
+	resolvedConfig(): WeaverConfig | null {
+		if (!GLOBAL_CONFIG) return null;
+		return deepMerge(GLOBAL_CONFIG, this.config);
+	}
+
 	toJSON(): SceneData {
-		return { version: "1.0", name: this.name, root: this.root.toJSON() };
+		return {
+			version: "1.0",
+			name: this.name,
+			config: this.config,
+			root: this.root.toJSON(),
+		};
 	}
 
 	static fromJSON(data: SceneData): Scene {
-		const scene = new Scene(data.name);
+		const scene = new Scene(data.name, data.config ?? {});
 		const root = Node.fromJSON(data.root);
 		for (const child of root.children) scene.root.addChild(child);
 		return scene;
 	}
 }
 
-// ─── Serializer ────────────────────────────────────────────────
 const Serializer = {
 	serialize(scene: Scene): string {
 		return JSON.stringify(scene.toJSON(), null, 2);
@@ -461,107 +638,6 @@ const SceneFactory = {
 };
 
 // ═══════════════════════════════════════════════════════════════
-// RENDER LAYER
-// ═══════════════════════════════════════════════════════════════
-
-class AssetManager extends Disposable {
-	private assets = new Map<string, unknown>();
-	private log = new Logger("AssetManager");
-	register<T>(key: string, asset: T): void {
-		this.assets.set(key, asset);
-	}
-	get<T>(key: string): T | undefined {
-		return this.assets.get(key) as T | undefined;
-	}
-	has(key: string): boolean {
-		return this.assets.has(key);
-	}
-	dispose(): void {
-		this.log.debug("disposing assets", this.assets.size);
-		this.assets.clear();
-		super.dispose();
-	}
-}
-
-class RenderLoop extends Disposable {
-	private handle: number | null = null;
-	private callbacks = new Set<(dt: number) => void>();
-	private lastTime = 0;
-
-	start(): void {
-		if (this.handle !== null) return;
-		this.lastTime = performance.now();
-		const tick = (now: number) => {
-			const dt = (now - this.lastTime) / 1000;
-			this.lastTime = now;
-			for (const cb of this.callbacks) {
-				try {
-					cb(dt);
-				} catch (err) {
-					console.error("[RenderLoop]", err);
-				}
-			}
-			this.handle = requestAnimationFrame(tick);
-		};
-		this.handle = requestAnimationFrame(tick);
-	}
-
-	stop(): void {
-		if (this.handle !== null) {
-			cancelAnimationFrame(this.handle);
-			this.handle = null;
-		}
-	}
-
-	onTick(cb: (dt: number) => void): Unsubscribe {
-		this.callbacks.add(cb);
-		return () => this.callbacks.delete(cb);
-	}
-
-	dispose(): void {
-		this.stop();
-		this.callbacks.clear();
-		super.dispose();
-	}
-}
-
-class Renderer extends Disposable {
-	private log = new Logger("Renderer");
-	readonly assets = new AssetManager();
-	readonly loop = new RenderLoop();
-	private scene: Scene | null = null;
-
-	constructor() {
-		super();
-		this.register(this.assets);
-		this.register(this.loop);
-	}
-
-	attachScene(scene: Scene): void {
-		this.scene = scene;
-		this.log.info("attached scene", scene.name);
-	}
-
-	getScene(): Scene | null {
-		return this.scene;
-	}
-
-	async init(): Promise<void> {
-		this.log.info("renderer initialized (stub)");
-		this.loop.start();
-	}
-
-	render(): void {
-		/* babylonScene.render() */
-	}
-
-	dispose(): void {
-		this.scene = null;
-		super.dispose();
-	}
-}
-
-// ═══════════════════════════════════════════════════════════════
 // EDITOR LAYER
 // ═══════════════════════════════════════════════════════════════
 
@@ -569,15 +645,12 @@ interface Command {
 	readonly label: string;
 	execute(): void;
 	undo(): void;
-	redo?(): void;
 }
 
 class CommandStack extends Disposable {
 	private undoStack: Command[] = [];
 	private redoStack: Command[] = [];
 	private maxSize = 200;
-	private log = new Logger("CommandStack");
-
 	readonly bus = new EventBus<{ changed: void }>();
 
 	execute(cmd: Command): void {
@@ -586,9 +659,7 @@ class CommandStack extends Disposable {
 		if (this.undoStack.length > this.maxSize) this.undoStack.shift();
 		this.redoStack.length = 0;
 		this.bus.emit("changed", undefined);
-		this.log.debug("executed", cmd.label);
 	}
-
 	undo(): void {
 		const cmd = this.undoStack.pop();
 		if (!cmd) return;
@@ -596,28 +667,18 @@ class CommandStack extends Disposable {
 		this.redoStack.push(cmd);
 		this.bus.emit("changed", undefined);
 	}
-
 	redo(): void {
 		const cmd = this.redoStack.pop();
 		if (!cmd) return;
-		(cmd.redo ?? cmd.execute).call(cmd);
+		cmd.execute();
 		this.undoStack.push(cmd);
 		this.bus.emit("changed", undefined);
 	}
-
-	canUndo(): boolean {
-		return this.undoStack.length > 0;
-	}
-	canRedo(): boolean {
-		return this.redoStack.length > 0;
-	}
-
 	clear(): void {
 		this.undoStack.length = 0;
 		this.redoStack.length = 0;
 		this.bus.emit("changed", undefined);
 	}
-
 	dispose(): void {
 		this.clear();
 		super.dispose();
@@ -627,32 +688,11 @@ class CommandStack extends Disposable {
 class Selection extends Disposable {
 	private selected = new Set<string>();
 	readonly bus = new EventBus<{ changed: string[] }>();
-
 	get ids(): string[] {
 		return [...this.selected];
 	}
-	get count(): number {
-		return this.selected.size;
-	}
-	has(id: string): boolean {
-		return this.selected.has(id);
-	}
-
 	set(ids: string[]): void {
 		this.selected = new Set(ids);
-		this.bus.emit("changed", this.ids);
-	}
-	add(id: string): void {
-		this.selected.add(id);
-		this.bus.emit("changed", this.ids);
-	}
-	remove(id: string): void {
-		this.selected.delete(id);
-		this.bus.emit("changed", this.ids);
-	}
-	toggle(id: string): void {
-		if (this.selected.has(id)) this.selected.delete(id);
-		else this.selected.add(id);
 		this.bus.emit("changed", this.ids);
 	}
 	clear(): void {
@@ -669,12 +709,10 @@ class EditorContext extends Disposable {
 	scene: Scene;
 	readonly commands = new CommandStack();
 	readonly selection = new Selection();
-	readonly renderer = new Renderer();
 	private log = new Logger("EditorContext");
 
 	readonly bus = new EventBus<{
 		"scene:loaded": Scene;
-		"scene:saved": void;
 		"scene:mutated": void;
 		"dirty:changed": boolean;
 	}>();
@@ -689,7 +727,6 @@ class EditorContext extends Disposable {
 		this.scene = new Scene();
 		this.register(this.commands);
 		this.register(this.selection);
-		this.register(this.renderer);
 		this.scene.bus.on("scene:changed", () => {
 			this.markDirty(true);
 			this.bus.emit("scene:mutated", undefined);
@@ -708,16 +745,9 @@ class EditorContext extends Disposable {
 		this.selection.clear();
 		this.markDirty(false);
 		this.bus.emit("scene:loaded", scene);
-		this.log.info("scene loaded", scene.name);
-	}
-
-	async saveScene(): Promise<void> {
-		this.markDirty(false);
-		this.bus.emit("scene:saved", undefined);
 	}
 }
 
-// ─── Commands ──────────────────────────────────────────────────
 class AddNodeCommand implements Command {
 	readonly label: string;
 	constructor(
@@ -732,24 +762,6 @@ class AddNodeCommand implements Command {
 	}
 	undo(): void {
 		this.scene.removeNode(this.node);
-	}
-}
-
-class DeleteNodeCommand implements Command {
-	readonly label: string;
-	private parent: Node | null;
-	constructor(
-		private scene: Scene,
-		private node: Node,
-	) {
-		this.label = `Delete ${node.name}`;
-		this.parent = node.parent;
-	}
-	execute(): void {
-		this.scene.removeNode(this.node);
-	}
-	undo(): void {
-		if (this.parent) this.scene.addNode(this.node, this.parent);
 	}
 }
 
@@ -774,7 +786,7 @@ class SetPropertyCommand<T> implements Command {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// HTML LOADER  (external .html files + nonce/csp substitution)
+// HTML LOADER
 // ═══════════════════════════════════════════════════════════════
 
 function loadWebviewHtml(context: vscode.ExtensionContext, webview: vscode.Webview, fileName: "viewport.html" | "inspector.html"): string {
@@ -791,38 +803,29 @@ function loadWebviewHtml(context: vscode.ExtensionContext, webview: vscode.Webvi
 	return html.replace(/\{\{nonce\}\}/g, nonce).replace(/\{\{cspSource\}\}/g, webview.cspSource);
 }
 
-function loadWeaverConfig(context: vscode.ExtensionContext): WeaverConfig | null {
-	const uri = vscode.Uri.joinPath(context.extensionUri, "src", "webview", "weaver.config.json");
-	try {
-		const raw = fs.readFileSync(uri.fsPath, "utf8");
-		const cfg = JSON.parse(raw) as WeaverConfig;
-		log.info("weaver config loaded v" + cfg.version);
-		return cfg;
-	} catch (err) {
-		log.error("failed to load weaver.config.json", err);
-		return null;
-	}
-}
-
 // ═══════════════════════════════════════════════════════════════
 // VS CODE INTEGRATION
 // ═══════════════════════════════════════════════════════════════
-
-const log = new Logger("Extension");
 
 export function activate(context: vscode.ExtensionContext): void {
 	log.info("Weaver activating...");
 	Logger.setLevel(LogLevel.Debug);
 
-	const editor = new EditorContext();
-	const config = loadWeaverConfig(context);
+	// ─── global config رو async لود کن ───
+	ensureGlobalConfig(context).then((cfg) => {
+		GLOBAL_CONFIG = cfg;
+		log.info("global config ready: " + getGlobalConfigUri(context).fsPath);
+	});
 
+	const editor = new EditorContext();
 	context.subscriptions.push({ dispose: () => editor.dispose() });
 
-	context.subscriptions.push(vscode.window.registerCustomEditorProvider("weaver.viewport", new WeaverViewportProvider(context, editor, config), { webviewOptions: { retainContextWhenHidden: true } }));
+	// ─── providers ───
+	context.subscriptions.push(vscode.window.registerCustomEditorProvider("weaver.viewport", new WeaverViewportProvider(context, editor), { webviewOptions: { retainContextWhenHidden: true } }));
 
 	context.subscriptions.push(vscode.window.registerWebviewViewProvider("weaver.inspector", new InspectorProvider(context, editor)));
 
+	// ─── commands ───
 	context.subscriptions.push(
 		vscode.commands.registerCommand("weaver.newScene", async () => {
 			const name = await vscode.window.showInputBox({
@@ -831,7 +834,6 @@ export function activate(context: vscode.ExtensionContext): void {
 				value: "New Scene",
 				validateInput: (v) => (v.trim().length === 0 ? "Name cannot be empty" : null),
 			});
-
 			if (name === undefined) return;
 
 			const safeName = name.trim().replace(/\s+/g, "-").toLowerCase();
@@ -843,7 +845,6 @@ export function activate(context: vscode.ExtensionContext): void {
 				saveLabel: "Create Scene",
 				defaultUri,
 			});
-
 			if (uri === undefined) return;
 
 			const scene = SceneFactory.createDefaultScene(name.trim());
@@ -853,11 +854,29 @@ export function activate(context: vscode.ExtensionContext): void {
 			await vscode.commands.executeCommand("vscode.openWith", uri, "weaver.viewport");
 			editor.loadScene(scene);
 		}),
+
 		vscode.commands.registerCommand("weaver.undo", () => editor.commands.undo()),
 		vscode.commands.registerCommand("weaver.redo", () => editor.commands.redo()),
-		vscode.commands.registerCommand("weaver.saveScene", async () => {
-			await editor.saveScene();
-			vscode.window.showInformationMessage("Scene saved ✓");
+
+		// ─── config commands ───
+		vscode.commands.registerCommand("weaver.openConfig", async () => {
+			await ensureGlobalConfig(context);
+			const uri = getGlobalConfigUri(context);
+			await vscode.window.showTextDocument(uri);
+		}),
+
+		vscode.commands.registerCommand("weaver.resetConfig", async () => {
+			const defaultCfg = createDefaultGlobalConfig();
+			await saveGlobalConfig(context, defaultCfg);
+			GLOBAL_CONFIG = defaultCfg;
+			vscode.window.showInformationMessage("Weaver config reset to defaults ✓");
+			vscode.commands.executeCommand("workbench.action.webview.reloadWebviewAction");
+		}),
+
+		vscode.commands.registerCommand("weaver.revealConfig", async () => {
+			await ensureGlobalConfig(context);
+			const uri = getGlobalConfigUri(context);
+			await vscode.commands.executeCommand("revealFileInOS", uri);
 		}),
 	);
 
@@ -876,7 +895,6 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 	constructor(
 		private readonly context: vscode.ExtensionContext,
 		private readonly editor: EditorContext,
-		private readonly config: WeaverConfig | null,
 	) {}
 
 	async resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): Promise<void> {
@@ -886,18 +904,24 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		};
 		panel.webview.html = loadWebviewHtml(this.context, panel.webview, "viewport.html");
 
-		// ─── Config رو اول بفرست ───
-		if (this.config) {
-			panel.webview.postMessage({ type: "config", payload: this.config });
-		}
-
-		const update = () => {
+		const send = () => {
 			try {
 				const scene = Serializer.deserialize(document.getText());
 				this.editor.loadScene(scene);
+
+				// کانفیگ نهایی = global + scene override
+				const resolved = scene.resolvedConfig();
+				if (!resolved) {
+					log.warn("global config not ready yet");
+					return;
+				}
+
 				panel.webview.postMessage({
 					type: "scene:update",
-					payload: scene.toJSON(),
+					payload: {
+						...scene.toJSON(),
+						config: resolved,
+					},
 				});
 			} catch (err) {
 				log.error("deserialize failed", err);
@@ -905,7 +929,7 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		};
 
 		const changeSub = vscode.workspace.onDidChangeTextDocument((e) => {
-			if (e.document.uri.toString() === document.uri.toString()) update();
+			if (e.document.uri.toString() === document.uri.toString()) send();
 		});
 		const selSub = this.editor.selection.bus.on("changed", (ids) => {
 			panel.webview.postMessage({ type: "selection:update", ids });
@@ -917,27 +941,29 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 
 		let initialSent = false;
 		panel.webview.onDidReceiveMessage(async (msg) => {
-			if (msg.type === "scene:save") {
-				const json = JSON.stringify(msg.payload, null, 2);
-				const edit = new vscode.WorkspaceEdit();
-				edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), json);
-				await vscode.workspace.applyEdit(edit);
-			} else if (msg.type === "select") {
+			if (msg.type === "select") {
 				this.editor.selection.set(msg.ids ?? []);
 			} else if (msg.type === "add:node") {
 				await this.handleAddNode(document, msg.payload);
 			} else if (msg.type === "update:transform") {
 				this.handleTransformUpdate(msg);
+			} else if (msg.type === "config:update") {
+				await this.handleConfigUpdate(document, msg.payload, panel);
 			} else if (msg.type === "ready") {
 				if (!initialSent) {
 					initialSent = true;
-					update();
+					// اگه GLOBAL_CONFIG هنوز لود نشده، صبر کن
+					if (!GLOBAL_CONFIG) {
+						await ensureGlobalConfig(this.context).then((cfg) => {
+							GLOBAL_CONFIG = cfg;
+						});
+					}
+					send();
 				}
 			}
 		});
 	}
 
-	// ─── اضافه کردن Node جدید ───
 	private async handleAddNode(document: vscode.TextDocument, data: any): Promise<void> {
 		try {
 			const newNode = new Node(data.name);
@@ -951,25 +977,19 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 				newNode.addComponent({ id: nextComponentId(), ...rest } as Component);
 			}
 
-			// اضافه به scene داخلی
-			const cmd = new AddNodeCommand(this.editor.scene, newNode);
-			this.editor.commands.execute(cmd);
+			this.editor.commands.execute(new AddNodeCommand(this.editor.scene, newNode));
 
-			// آپدیت فایل
 			const updatedJson = Serializer.serialize(this.editor.scene);
 			const edit = new vscode.WorkspaceEdit();
 			edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), updatedJson);
 			await vscode.workspace.applyEdit(edit);
 
-			// انتخابش کن
 			this.editor.selection.set([newNode.id]);
-			log.info("added node", newNode.name, newNode.id);
 		} catch (err) {
 			log.error("handleAddNode failed", err);
 		}
 	}
 
-	// ─── آپدیت transform (از Gizmo drag) ───
 	private handleTransformUpdate(msg: any): void {
 		try {
 			const node = this.editor.scene.findNode(msg.nodeId);
@@ -982,6 +1002,39 @@ class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 			}
 		} catch (err) {
 			log.error("handleTransformUpdate failed", err);
+		}
+	}
+
+	// config صحنه رو ذخیره کن (فقط override ها، نه کل کانفیگ)
+	private async handleConfigUpdate(document: vscode.TextDocument, payload: Partial<WeaverConfig>, panel: vscode.WebviewPanel): Promise<void> {
+		try {
+			this.editor.scene.config = payload;
+
+			const updatedJson = JSON.stringify(
+				{
+					version: "1.0",
+					name: this.editor.scene.name,
+					config: this.editor.scene.config,
+					root: this.editor.scene.root.toJSON(),
+				},
+				null,
+				2,
+			);
+
+			const edit = new vscode.WorkspaceEdit();
+			edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), updatedJson);
+			await vscode.workspace.applyEdit(edit);
+
+			// resolved config رو دوباره بفرست
+			const resolved = this.editor.scene.resolvedConfig();
+			if (resolved) {
+				panel.webview.postMessage({
+					type: "config:resolved",
+					payload: resolved,
+				});
+			}
+		} catch (err) {
+			log.error("handleConfigUpdate failed", err);
 		}
 	}
 }
