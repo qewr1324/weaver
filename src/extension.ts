@@ -1,3 +1,4 @@
+// src/extension.ts
 import * as vscode from "vscode";
 import { registerCommands } from "./commands";
 import { ensureGlobalConfig, setGlobalConfig } from "./config/loader";
@@ -19,7 +20,7 @@ export function activate(context: vscode.ExtensionContext): void {
 	const editor = new EditorContext();
 	context.subscriptions.push({ dispose: () => editor.dispose() });
 
-	// ─── Viewport (قبل از commands) ───
+	// ─── Viewport ───
 	const viewportProvider = new WeaverViewportProvider(context, editor);
 	context.subscriptions.push(
 		vscode.window.registerCustomEditorProvider("weaver.viewport", viewportProvider, {
@@ -39,6 +40,7 @@ export function activate(context: vscode.ExtensionContext): void {
 		}),
 	);
 
+	// ─── refresh hooks ───
 	editor.scene.bus.on("node:added", () => hierarchy.refresh());
 	editor.scene.bus.on("node:removed", () => hierarchy.refresh());
 	editor.bus.on("scene:loaded", () => hierarchy.refresh());

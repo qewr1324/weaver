@@ -1,23 +1,22 @@
+// src/editor/scene-document/index.ts
 import * as vscode from "vscode";
 import { Disposable } from "../../core/disposable";
 import { EventBus } from "../../core/event-bus";
 import { Logger } from "../../core/logger";
 import { Serializer } from "../../scene/serializer";
 import { Scene } from "../../scene/scene";
+import { CommandStack } from "../command-stack";
 
-/**
- * SceneDocument = single source of truth بین فایل و Scene in-memory.
- *
- * - `scene` همیشه همون object می‌مونه (هرگز عوض نمی‌شه) — فقط محتویاتش به‌روز می‌شه.
- * - `_writing` جلوی re-entrancy رو می‌گیره وقتی خودمون فایل رو ذخیره می‌کنیم.
- * - `_syncing` جلوی dirty شدن رو می‌گیره وقتی از فایل داریم sync می‌کنیم.
- */
 export class SceneDocument extends Disposable {
 	private readonly log = new Logger("SceneDocument");
-	private _scene: Scene;
+	private readonly _scene: Scene;
 	private _dirty = false;
-	private _syncing = false;
-	private _writing = false;
+	private _applyingRemote = false;
+	private _flushTimer: ReturnType<typeof setTimeout> | null = null;
+	private readonly _flushDelayMs = 200;
+
+	/** command stack مخصوص همین document */
+	readonly commands = new CommandStack();
 
 	readonly bus = new EventBus<{
 		changed: void;
@@ -31,11 +30,13 @@ export class SceneDocument extends Disposable {
 	) {
 		super();
 		this._scene = initial;
+		this.register(this.commands);
 
 		this._scene.bus.on("scene:changed", () => {
-			if (this._syncing) return;
+			if (this._applyingRemote) return;
 			this.markDirty(true);
 			this.bus.emit("changed", undefined);
+			this.scheduleFlush();
 		});
 	}
 
@@ -47,9 +48,8 @@ export class SceneDocument extends Disposable {
 		return this._dirty;
 	}
 
-	/** آیا همین الان داریم فایل رو می‌نویسیم؟ */
 	get writing(): boolean {
-		return this._writing;
+		return this._applyingRemote;
 	}
 
 	markDirty(value: boolean): void {
@@ -58,19 +58,21 @@ export class SceneDocument extends Disposable {
 		this.bus.emit("dirty:changed", value);
 	}
 
-	/**
-	 * از سمت VSCode document → Scene in-memory.
-	 * فقط وقتی که تغییر از بیرون اومده (نه خودمون).
-	 * از `replaceContents` استفاده می‌کنه تا object `Scene` عوض نشه.
-	 */
 	applyFromText(text: string): void {
-		if (this._writing) return;
+		if (this._applyingRemote) return;
 
 		try {
 			const scene = Serializer.deserialize(text);
-			this._syncing = true;
-			this._scene.replaceContents(scene);
-			this._syncing = false;
+
+			this._applyingRemote = true;
+			try {
+				this._scene.replaceContents(scene);
+			} finally {
+				queueMicrotask(() => {
+					this._applyingRemote = false;
+				});
+			}
+
 			this.markDirty(false);
 			this.bus.emit("external:changed", undefined);
 			this.bus.emit("changed", undefined);
@@ -79,11 +81,20 @@ export class SceneDocument extends Disposable {
 		}
 	}
 
-	/**
-	 * از Scene → فایل.
-	 * @param save اگه true باشه، بعد از applyEdit یه doc.save() هم می‌زنه.
-	 */
+	private scheduleFlush(): void {
+		if (this._flushTimer) clearTimeout(this._flushTimer);
+		this._flushTimer = setTimeout(() => {
+			this._flushTimer = null;
+			void this.flushToDocument();
+		}, this._flushDelayMs);
+	}
+
 	async flushToDocument(save = false): Promise<void> {
+		if (this._flushTimer) {
+			clearTimeout(this._flushTimer);
+			this._flushTimer = null;
+		}
+
 		const doc = vscode.workspace.textDocuments.find((d) => d.uri.toString() === this.uri.toString());
 		if (!doc) {
 			this.log.warn("document not found for flush", this.uri.toString());
@@ -93,12 +104,11 @@ export class SceneDocument extends Disposable {
 		const json = Serializer.serialize(this._scene);
 		if (json === doc.getText()) {
 			this.markDirty(false);
-			if (save) await doc.save();
+			if (save && doc.isDirty) await doc.save();
 			return;
 		}
 
-		// ─── flag: ما داریم می‌نویسیم ───
-		this._writing = true;
+		this._applyingRemote = true;
 		try {
 			const fullRange = new vscode.Range(doc.positionAt(0), doc.positionAt(doc.getText().length));
 			const edit = new vscode.WorkspaceEdit();
@@ -109,16 +119,16 @@ export class SceneDocument extends Disposable {
 				await doc.save();
 			}
 		} finally {
-			// ─── یه tick صبر کن تا eventهای VSCode fire بشن ───
-			setTimeout(() => {
-				this._writing = false;
-			}, 50);
+			queueMicrotask(() => {
+				this._applyingRemote = false;
+			});
 		}
 
 		this.markDirty(false);
 	}
 
 	dispose(): void {
+		if (this._flushTimer) clearTimeout(this._flushTimer);
 		super.dispose();
 	}
 }

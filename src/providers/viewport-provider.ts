@@ -1,10 +1,13 @@
+// src/providers/viewport-provider.ts
 import * as vscode from "vscode";
 import { ensureGlobalConfig, setGlobalConfig } from "../config/loader";
+import { getDefaultSceneUri, sceneFileExists } from "../config/paths";
 import { log } from "../core/logger";
 import { AddNodeCommand, DuplicateNodeCommand, RemoveNodeCommand, SetTransformCommand, SetWholeTransformCommand, type TransformSnapshot } from "../editor/commands";
 import type { EditorContext } from "../editor/editor-context";
 import { SceneDocument } from "../editor/scene-document";
 import { type Component, nextComponentId } from "../scene/components";
+import { SceneFactory } from "../scene/factory";
 import { Node } from "../scene/node";
 import { Serializer } from "../scene/serializer";
 import { loadWebviewHtml } from "./html-loader";
@@ -17,6 +20,9 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		private readonly editor: EditorContext,
 	) {}
 
+	// ─────────────────────────────────────────────
+	// Custom Editor entry point
+	// ─────────────────────────────────────────────
 	async resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): Promise<void> {
 		panel.webview.options = {
 			enableScripts: true,
@@ -24,7 +30,6 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		};
 		panel.webview.html = loadWebviewHtml(this.context, panel.webview, "viewport.html");
 
-		// ─── ساخت SceneDocument اولیه ───
 		const initialScene = Serializer.tryDeserialize(document.getText());
 		if (!initialScene.ok) {
 			log.error("initial scene invalid:", initialScene.error);
@@ -34,7 +39,9 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 
 		const doc = new SceneDocument(document.uri, initialScene.scene);
 		this.docs.set(document.uri.toString(), doc);
-		this.editor.loadScene(doc.scene);
+
+		// ─── به EditorContext وصل شو (جای loadScene) ───
+		this.editor.attachDocument(doc);
 
 		const post = (msg: unknown) => {
 			try {
@@ -59,11 +66,7 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		// ─── sub: فایل تغییر کرد → scene رو دوباره load کن ───
 		const changeSub = vscode.workspace.onDidChangeTextDocument((e) => {
 			if (e.document.uri.toString() !== document.uri.toString()) return;
-
-			// ─── اگه خودمون داریم می‌نویسیم، ignore ───
-			if (doc.writing) return;
-
-			// ─── از فایل بخون و محتویات scene رو جایگزین کن ───
+			// echo نوشته‌های خودمون ignore می‌شه (داخل applyFromText)
 			doc.applyFromText(e.document.getText());
 			sendScene();
 		});
@@ -73,21 +76,18 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 			post({ type: "selection:update", ids });
 		});
 
-		// ─── sub: scene mutated → flush به فایل (debounced) ───
-		let flushTimer: NodeJS.Timeout | null = null;
-		const mutatedSub = this.editor.scene.bus.on("scene:changed", () => {
-			if (flushTimer) clearTimeout(flushTimer);
-			flushTimer = setTimeout(() => {
-				void doc.flushToDocument();
-			}, 150);
+		// ─── sub: scene:changed → فقط webview رو آپدیت کن ───
+		// (flush به فایل توسط خود SceneDocument انجام می‌شه)
+		const changedSub = doc.bus.on("changed", () => {
+			sendScene();
 		});
 
 		panel.onDidDispose(() => {
 			changeSub.dispose();
 			selSub();
-			mutatedSub();
-			if (flushTimer) clearTimeout(flushTimer);
+			changedSub();
 			this.docs.delete(document.uri.toString());
+			this.editor.detachDocument(document.uri.toString());
 			doc.dispose();
 		});
 
@@ -137,13 +137,42 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		});
 	}
 
-	/**
-	 * ذخیره‌ی فایل فعال (چه Custom Editor چه Text Editor).
-	 * از `tabGroups` استفاده می‌کنه چون `activeTextEditor` برای Custom Editorها undefined هست.
-	 */
+	// ─────────────────────────────────────────────
+	// Default scene: open-or-create level-1.weave.json
+	// ─────────────────────────────────────────────
+	async openDefaultScene(): Promise<void> {
+		let uri: vscode.Uri;
+		try {
+			uri = getDefaultSceneUri();
+		} catch (err) {
+			vscode.window.showErrorMessage(String(err));
+			return;
+		}
+
+		if (!(await sceneFileExists(uri))) {
+			const scene = SceneFactory.createDefaultScene("Level 1");
+			const json = Serializer.serialize(scene);
+			await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(json));
+			log.info("created default scene at " + uri.fsPath);
+		}
+
+		await vscode.commands.executeCommand("vscode.openWith", uri, "weaver.viewport");
+	}
+
+	// ─────────────────────────────────────────────
+	// Save active scene
+	// ─────────────────────────────────────────────
 	async saveActiveScene(): Promise<{ ok: boolean; reason?: string }> {
 		const activeTab = vscode.window.tabGroups.activeTabGroup?.activeTab;
-		if (!activeTab) return { ok: false, reason: "no active tab" };
+		if (!activeTab) {
+			// fallback: اگه هیچ تبی نیست ولی یه doc باز داریم، همون رو save کن
+			const first = this.docs.values().next().value as SceneDocument | undefined;
+			if (first) {
+				await first.flushToDocument(true);
+				return { ok: true };
+			}
+			return { ok: false, reason: "no active tab" };
+		}
 
 		let uri: vscode.Uri | undefined;
 		if (activeTab.input instanceof vscode.TabInputCustom) {
@@ -161,6 +190,9 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		return { ok: true };
 	}
 
+	// ─────────────────────────────────────────────
+	// Handlers
+	// ─────────────────────────────────────────────
 	private async handleAddNode(doc: SceneDocument, data: any): Promise<void> {
 		const newNode = new Node(data.name);
 
@@ -175,14 +207,14 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 			newNode.addComponent({ id: nextComponentId(), ...rest } as Component);
 		}
 
-		await this.editor.commands.execute(new AddNodeCommand(this.editor.scene, newNode));
+		await doc.commands.execute(new AddNodeCommand(doc.scene, newNode));
 		this.editor.selection.set([newNode.id]);
 	}
 
 	private async handleRemoveNode(doc: SceneDocument, nodeId: string): Promise<void> {
 		const node = doc.scene.findNode(nodeId);
 		if (!node) return;
-		await this.editor.commands.execute(new RemoveNodeCommand(doc.scene, node));
+		await doc.commands.execute(new RemoveNodeCommand(doc.scene, node));
 		this.editor.selection.remove(nodeId);
 	}
 
@@ -191,7 +223,7 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		if (!node) return;
 
 		const cmd = new DuplicateNodeCommand(doc.scene, node, (src) => src.clone());
-		await this.editor.commands.execute(cmd);
+		await doc.commands.execute(cmd);
 
 		const parent = node.parent;
 		if (parent) {
@@ -203,13 +235,13 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 	private async handleWholeTransform(doc: SceneDocument, nodeId: string, transform: TransformSnapshot): Promise<void> {
 		const node = doc.scene.findNode(nodeId);
 		if (!node) return;
-		await this.editor.commands.execute(new SetWholeTransformCommand(node, transform));
+		await doc.commands.execute(new SetWholeTransformCommand(node, transform));
 	}
 
 	private async handleAxisTransform(doc: SceneDocument, nodeId: string, channel: string, axis: string, value: number): Promise<void> {
 		const node = doc.scene.findNode(nodeId);
 		if (!node || typeof value !== "number") return;
-		await this.editor.commands.execute(new SetTransformCommand(node, channel as any, axis as any, value));
+		await doc.commands.execute(new SetTransformCommand(node, channel as any, axis as any, value));
 	}
 
 	private errorHtml(message: string): string {

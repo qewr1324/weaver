@@ -3,7 +3,7 @@
 	"type": "module",
 	"displayName": "Weaver",
 	"description": "🛡️ Weaver - a 3D game editor from TS/JS for 💠 VSCode. ",
-	"version": "0.74.50",
+	"version": "0.74.59",
 	"private": false,
 	"publisher": "GhurbeSABZI",
 	"packageManager": "bun@1.3.14",
@@ -132,6 +132,16 @@
 			{
 				"command": "weaver.revealConfig",
 				"title": "Weaver: Reveal Config"
+			},
+			{
+				"command": "weaver.openDefaultScene",
+				"title": "Weaver: Open level-1 Scene",
+				"icon": "$(folder-opened)"
+			},
+			{
+				"command": "weaver.openDefaultScene",
+				"when": "view == weaver.hierarchy",
+				"group": "navigation@0"
 			}
 		],
 		"keybindings": [

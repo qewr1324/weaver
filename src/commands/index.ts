@@ -1,3 +1,4 @@
+// src/commands/index.ts
 import * as vscode from "vscode";
 import { createDefaultGlobalConfig } from "../config/defaults";
 import { ensureGlobalConfig, getGlobalConfigUri, saveGlobalConfig, setGlobalConfig } from "../config/loader";
@@ -10,7 +11,14 @@ import type { WeaverViewportProvider } from "../providers/viewport-provider";
 export function registerCommands(context: vscode.ExtensionContext, editor: EditorContext, viewport: WeaverViewportProvider): vscode.Disposable[] {
 	return [
 		// ─────────────────────────────────────────
-		// NEW SCENE
+		// OPEN DEFAULT SCENE (level-1.weave.json)
+		// ─────────────────────────────────────────
+		vscode.commands.registerCommand("weaver.openDefaultScene", async () => {
+			await viewport.openDefaultScene();
+		}),
+
+		// ─────────────────────────────────────────
+		// NEW SCENE (با انتخاب نام و مسیر)
 		// ─────────────────────────────────────────
 		vscode.commands.registerCommand("weaver.newScene", async () => {
 			const name = await vscode.window.showInputBox({
