@@ -19,11 +19,11 @@ import { setupFocusHotkey } from "./focus";
 import { drawSelectionBox } from "./selection-box";
 import { installGridControls } from "./grid-controls";
 
-// ✨ جدید — ماژول‌های مستقل undo/redo
 import { installUndoRedo } from "./undo-redo";
 import { installTransformCommit } from "./transform-commit";
 
-// ⚠️ موقت
+import { installRuler, drawRuler } from "./ruler";
+
 import { installLeakDetector } from "./debug-leak";
 
 function boot(): void {
@@ -54,6 +54,7 @@ function boot(): void {
 	setScene(sc);
 	setCamera(cam);
 	(window as any).__weaver_scene = sc;
+	(window as any).__weaver_engine = eng; // ✅ برای ruler
 
 	applyRotation();
 	restoreCamera();
@@ -69,6 +70,9 @@ function boot(): void {
 	setupPicking();
 	setupLookModeListeners();
 
+	installUndoRedo();
+	installTransformCommit();
+
 	installCameraPersist();
 	installAxesIndicator();
 	installViewportContextMenu();
@@ -76,9 +80,7 @@ function boot(): void {
 	setupFocusHotkey();
 	installGridControls();
 
-	// ✨ نصب ماژول‌های مستقل
-	installUndoRedo();
-	installTransformCommit();
+	installRuler();
 
 	installLeakDetector();
 
@@ -91,6 +93,7 @@ function boot(): void {
 		drawAxesIndicator();
 		updatePerformanceHud();
 		drawSelectionBox();
+		drawRuler();
 	});
 
 	window.addEventListener("resize", () => eng.resize());
