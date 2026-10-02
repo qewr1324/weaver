@@ -1,7 +1,6 @@
 // src/webview/shader/scripts/render/channel.ts
 import { CHANNEL_META } from "../../../../scene/shader/defaults";
 import type { ShaderChannel, ShaderChannelKey, ChannelSource } from "../../../../scene/shader/types";
-import { getTexture } from "../texture-store";
 
 const SOURCE_LABELS: Record<ChannelSource, string> = {
 	off: "Off",
@@ -18,18 +17,15 @@ export function renderChannel(key: ShaderChannelKey, channel: ShaderChannel): st
 
 	let html = `<div class="channel${enabled ? " enabled" : ""}" data-channel="${key}">`;
 
-	// header
 	html += `<div class="channel-head">`;
 	html += `<input type="checkbox" class="channel-toggle" data-channel-toggle="${key}" ${enabled ? "checked" : ""} />`;
 	html += `<span class="channel-label">${esc(meta.label)}</span>`;
 	html += `<span class="channel-desc">${esc(meta.description)}</span>`;
 	html += `</div>`;
 
-	// body
 	if (enabled) {
 		html += `<div class="channel-body">`;
 
-		// source selector
 		html += `<div class="channel-row">`;
 		html += `<label>Source</label>`;
 		html += `<select data-channel-source="${key}">`;
@@ -42,7 +38,6 @@ export function renderChannel(key: ShaderChannelKey, channel: ShaderChannel): st
 
 		html += renderSourceOptions(key, channel);
 
-		// intensity
 		if (channel.source === "color-texture" || channel.source === "number-texture") {
 			html += `<div class="channel-row">
 				<label>Intensity</label>
@@ -61,7 +56,6 @@ export function renderChannel(key: ShaderChannelKey, channel: ShaderChannel): st
 function renderSourceOptions(key: ShaderChannelKey, channel: ShaderChannel): string {
 	let html = "";
 
-	// ─── color ───
 	if (channel.source === "color" || channel.source === "color-texture") {
 		const c = channel.color ?? [0.5, 0.5, 0.5, 1];
 		const hex = rgbToHex(c[0], c[1], c[2]);
@@ -72,7 +66,6 @@ function renderSourceOptions(key: ShaderChannelKey, channel: ShaderChannel): str
 		</div>`;
 	}
 
-	// ─── number ───
 	if (channel.source === "number" || channel.source === "number-texture") {
 		html += `<div class="channel-row">
 			<label>Value</label>
@@ -81,25 +74,18 @@ function renderSourceOptions(key: ShaderChannelKey, channel: ShaderChannel): str
 		</div>`;
 	}
 
-	// ─── texture ───
 	if (channel.source === "texture" || channel.source === "color-texture" || channel.source === "number-texture") {
-		const entry = getTexture(key);
-		const thumbnail = entry ? entry.dataUrl : null;
-		const hasTexture = !!channel.texture;
+		const path = channel.texture ?? "";
 
 		html += `<div class="channel-row texture-row">`;
 		html += `<label>Texture</label>`;
 		html += `<div class="texture-picker">`;
 
-		html += `<div class="texture-preview${hasTexture ? " has-texture" : ""}" data-texture-preview="${key}" title="Click or drop image">`;
-		if (thumbnail) {
-			html += `<img src="${thumbnail}" alt="" />`;
-		} else {
-			html += `<span class="texture-empty">drop</span>`;
-		}
+		html += `<div class="texture-preview" data-texture-preview="${key}" title="Click or drop image">`;
+		html += path ? `<span class="texture-loaded">🖼</span>` : `<span class="texture-empty">drop</span>`;
 		html += `</div>`;
 
-		html += `<input type="text" data-channel-texture="${key}" value="${esc(channel.texture ?? "")}" placeholder="path or drop image" spellcheck="false" />`;
+		html += `<input type="text" data-channel-texture="${key}" value="${esc(path)}" placeholder="textures/wood.png" spellcheck="false" />`;
 		html += `<button class="texture-btn" data-texture-pick="${key}" title="Pick file">📁</button>`;
 
 		html += `</div>`;

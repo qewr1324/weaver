@@ -68,7 +68,6 @@ export class ShaderPreviewRenderer {
 		gl.cullFace(gl.BACK);
 		gl.clearColor(0.1, 0.12, 0.15, 1);
 
-		// ✅ register GL context برای texture store
 		registerGL(gl);
 
 		this.setupInput();
@@ -79,7 +78,6 @@ export class ShaderPreviewRenderer {
 		if (!this.gl) return;
 		this.currentShader = shader;
 		this.buildProgram(shader);
-		// ✅ texture ها رو دوباره آپلود کن
 		uploadAllToGPU();
 	}
 
@@ -92,7 +90,6 @@ export class ShaderPreviewRenderer {
 		if (this.rafHandle) cancelAnimationFrame(this.rafHandle);
 	}
 
-	// ─── input ───
 	private setupInput(): void {
 		if (!this.canvas) return;
 
@@ -115,16 +112,9 @@ export class ShaderPreviewRenderer {
 			this.isDragging = false;
 		});
 
-		this.canvas.addEventListener(
-			"wheel",
-			(e) => {
-				e.preventDefault();
-			},
-			{ passive: false },
-		);
+		this.canvas.addEventListener("wheel", (e) => e.preventDefault(), { passive: false });
 	}
 
-	// ─── build program ───
 	private buildProgram(shader: ShaderDefinition): void {
 		const gl = this.gl;
 		if (!gl) return;
@@ -154,12 +144,10 @@ export class ShaderPreviewRenderer {
 		if (this.program) gl.deleteProgram(this.program);
 		this.program = prog;
 
-		// attribs
 		this.attribLocations.aPosition = gl.getAttribLocation(prog, "aPosition");
 		this.attribLocations.aNormal = gl.getAttribLocation(prog, "aNormal");
 		this.attribLocations.aUV = gl.getAttribLocation(prog, "aUV");
 
-		// uniforms
 		this.uniformLocations.clear();
 		const uniformNames = ["uProjection", "uView", "uModel", "uNormalMatrix", "uCameraPos", "uLightDir", "uLightColor", "uLightIntensity"];
 
@@ -197,7 +185,6 @@ export class ShaderPreviewRenderer {
 		return sh;
 	}
 
-	// ─── upload mesh ───
 	private uploadMesh(shape: PreviewShape): void {
 		const gl = this.gl;
 		if (!gl) return;
@@ -223,7 +210,6 @@ export class ShaderPreviewRenderer {
 		this.indexCount = mesh.indices.length;
 	}
 
-	// ─── loop ───
 	private loop = (): void => {
 		this.rafHandle = requestAnimationFrame(this.loop);
 		this.draw();
@@ -253,9 +239,9 @@ export class ShaderPreviewRenderer {
 		}
 
 		const radius = this.state.shape === "plane" ? 3 : 3.2;
-		const camX = Math.sin(0) * radius;
+		const camX = 0;
 		const camY = 0.6;
-		const camZ = Math.cos(0) * radius;
+		const camZ = radius;
 
 		const view = mat4LookAt([camX, camY, camZ], [0, 0, 0], [0, 1, 0]);
 
@@ -331,6 +317,8 @@ export class ShaderPreviewRenderer {
 		const gl = this.gl;
 		if (!gl) return;
 
+		registerGL(gl);
+
 		let textureUnit = 0;
 
 		for (const key of CHANNEL_ORDER) {
@@ -347,8 +335,6 @@ export class ShaderPreviewRenderer {
 			}
 
 			if (ch.source === "texture" || ch.source === "color-texture" || ch.source === "number-texture") {
-				// ✅ تلاش برای bind texture
-				uploadAllToGPU();
 				const bound = bindTexture(key, textureUnit);
 
 				this.setUniform1i(`u_${key}_texture`, textureUnit);

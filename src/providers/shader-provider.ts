@@ -13,7 +13,7 @@ export class WeaverShaderProvider implements vscode.CustomTextEditorProvider {
 	async resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): Promise<void> {
 		panel.webview.options = {
 			enableScripts: true,
-			localResourceRoots: [this.context.extensionUri, vscode.Uri.joinPath(document.uri, "..")],
+			localResourceRoots: [this.context.extensionUri],
 		};
 		panel.webview.html = loadWebviewHtml(this.context, panel.webview, "shader");
 
@@ -76,9 +76,13 @@ export class WeaverShaderProvider implements vscode.CustomTextEditorProvider {
 						break;
 					}
 
-					// ✅ NEW: load texture از path
 					case "texture:load": {
 						await this.handleTextureLoad(document, post, msg.requestId as string, msg.path as string);
+						break;
+					}
+
+					case "texture:save": {
+						await this.handleTextureSave(document, post, msg.requestId as string, msg.fileName as string, msg.dataUrl as string);
 						break;
 					}
 
@@ -96,7 +100,7 @@ export class WeaverShaderProvider implements vscode.CustomTextEditorProvider {
 
 	private async handleTextureLoad(document: vscode.TextDocument, post: (msg: unknown) => void, requestId: string, path: string): Promise<void> {
 		try {
-			if (!path || path.startsWith("data:") || path.startsWith("http")) {
+			if (!path) {
 				post({ type: "texture:loaded", requestId, ok: false });
 				return;
 			}
@@ -106,7 +110,6 @@ export class WeaverShaderProvider implements vscode.CustomTextEditorProvider {
 			if (path.startsWith("/")) {
 				fileUri = vscode.Uri.file(path);
 			} else {
-				// ✅ relative به shader file
 				const baseDir = vscode.Uri.joinPath(document.uri, "..");
 				fileUri = vscode.Uri.joinPath(baseDir, path);
 			}
@@ -123,6 +126,39 @@ export class WeaverShaderProvider implements vscode.CustomTextEditorProvider {
 		} catch (err) {
 			log.warn("texture load failed:", path, err);
 			post({ type: "texture:loaded", requestId, ok: false });
+		}
+	}
+
+	private async handleTextureSave(document: vscode.TextDocument, post: (msg: unknown) => void, requestId: string, fileName: string, dataUrl: string): Promise<void> {
+		try {
+			const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+			if (!matches) {
+				post({ type: "texture:saved", requestId, ok: false });
+				return;
+			}
+
+			const base64 = matches[2];
+			const bytes = Buffer.from(base64, "base64");
+
+			const baseDir = vscode.Uri.joinPath(document.uri, "..");
+			const texturesDir = vscode.Uri.joinPath(baseDir, "textures");
+
+			try {
+				await vscode.workspace.fs.createDirectory(texturesDir);
+			} catch {
+				/* ignore */
+			}
+
+			const fileUri = vscode.Uri.joinPath(texturesDir, fileName);
+			await vscode.workspace.fs.writeFile(fileUri, bytes);
+
+			const relativePath = `textures/${fileName}`;
+			log.info(`texture saved: ${fileUri.fsPath}`);
+
+			post({ type: "texture:saved", requestId, ok: true, path: relativePath });
+		} catch (err) {
+			log.warn("texture save failed:", fileName, err);
+			post({ type: "texture:saved", requestId, ok: false });
 		}
 	}
 

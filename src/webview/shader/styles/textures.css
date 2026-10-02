@@ -38,18 +38,15 @@
     background: var(--sh-accent-bg);
 }
 
-.texture-preview img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-}
-
 .texture-empty {
     font-size: 9px;
     color: var(--sh-fg-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
+}
+
+.texture-loaded {
+    font-size: 18px;
 }
 
 .texture-picker input[type="text"] {

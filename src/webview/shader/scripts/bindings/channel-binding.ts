@@ -5,6 +5,7 @@ import { updatePreviewOnly } from "../render";
 import { state } from "../state";
 import { Messaging } from "../messaging";
 import { fileToDataUrl, setTexture, clearTexture } from "../texture-store";
+import { postToExtension } from "../../../shared/vscode-api";
 
 export interface ChannelHooks {
 	onRerender: () => void;
@@ -14,7 +15,6 @@ export function bindChannelInputs(root: HTMLElement, hooks: ChannelHooks): void 
 	const shader = state.current;
 	if (!shader) return;
 
-	// ─── toggle ───
 	root.querySelectorAll<HTMLInputElement>("input[data-channel-toggle]").forEach((cb) => {
 		cb.addEventListener("change", () => {
 			const key = cb.dataset.channelToggle as ShaderChannelKey;
@@ -33,7 +33,6 @@ export function bindChannelInputs(root: HTMLElement, hooks: ChannelHooks): void 
 		});
 	});
 
-	// ─── source ───
 	root.querySelectorAll<HTMLSelectElement>("select[data-channel-source]").forEach((sel) => {
 		sel.addEventListener("change", () => {
 			const key = sel.dataset.channelSource as ShaderChannelKey;
@@ -45,7 +44,6 @@ export function bindChannelInputs(root: HTMLElement, hooks: ChannelHooks): void 
 		});
 	});
 
-	// ─── color ───
 	root.querySelectorAll<HTMLInputElement>("input[data-channel-color]").forEach((inp) => {
 		inp.addEventListener("input", () => {
 			const key = inp.dataset.channelColor as ShaderChannelKey;
@@ -58,7 +56,6 @@ export function bindChannelInputs(root: HTMLElement, hooks: ChannelHooks): void 
 		});
 	});
 
-	// ─── alpha ───
 	root.querySelectorAll<HTMLInputElement>("input[data-channel-alpha]").forEach((inp) => {
 		inp.addEventListener("input", () => {
 			const key = inp.dataset.channelAlpha as ShaderChannelKey;
@@ -72,7 +69,6 @@ export function bindChannelInputs(root: HTMLElement, hooks: ChannelHooks): void 
 		});
 	});
 
-	// ─── number ───
 	root.querySelectorAll<HTMLInputElement>("input[data-channel-number]").forEach((inp) => {
 		inp.addEventListener("input", () => {
 			const key = inp.dataset.channelNumber as ShaderChannelKey;
@@ -85,12 +81,12 @@ export function bindChannelInputs(root: HTMLElement, hooks: ChannelHooks): void 
 		});
 	});
 
-	// ─── texture (text input) ───
 	root.querySelectorAll<HTMLInputElement>("input[data-channel-texture]").forEach((inp) => {
 		inp.addEventListener("change", async () => {
 			const key = inp.dataset.channelTexture as ShaderChannelKey;
 			const ch = shader.channels[key];
 			const path = inp.value.trim();
+
 			ch.texture = path;
 
 			if (path) {
@@ -105,7 +101,6 @@ export function bindChannelInputs(root: HTMLElement, hooks: ChannelHooks): void 
 		});
 	});
 
-	// ─── texture picker (file button) ───
 	root.querySelectorAll<HTMLButtonElement>("button[data-texture-pick]").forEach((btn) => {
 		btn.addEventListener("click", (e) => {
 			e.stopPropagation();
@@ -114,7 +109,6 @@ export function bindChannelInputs(root: HTMLElement, hooks: ChannelHooks): void 
 		});
 	});
 
-	// ─── texture drop zone ───
 	root.querySelectorAll<HTMLElement>("[data-texture-preview]").forEach((zone) => {
 		zone.addEventListener("dragover", (e) => {
 			e.preventDefault();
@@ -130,12 +124,7 @@ export function bindChannelInputs(root: HTMLElement, hooks: ChannelHooks): void 
 			const file = e.dataTransfer?.files?.[0];
 			if (!file || !file.type.startsWith("image/")) return;
 
-			const dataUrl = await fileToDataUrl(file);
-			shader.channels[key].texture = dataUrl;
-			await setTexture(key, dataUrl);
-			Messaging.pushShader(shader);
-			updatePreviewOnly(shader);
-			hooks.onRerender();
+			saveTextureViaExtension(key, file, shader, hooks);
 		});
 		zone.addEventListener("click", () => {
 			const key = zone.dataset.texturePreview as ShaderChannelKey;
@@ -143,7 +132,6 @@ export function bindChannelInputs(root: HTMLElement, hooks: ChannelHooks): void 
 		});
 	});
 
-	// ─── intensity ───
 	root.querySelectorAll<HTMLInputElement>("input[data-channel-intensity]").forEach((inp) => {
 		inp.addEventListener("input", () => {
 			const key = inp.dataset.channelIntensity as ShaderChannelKey;
@@ -164,15 +152,45 @@ function openFilePicker(key: ShaderChannelKey, shader: any, hooks: ChannelHooks)
 	input.onchange = async () => {
 		const file = input.files?.[0];
 		if (!file) return;
-
-		const dataUrl = await fileToDataUrl(file);
-		shader.channels[key].texture = dataUrl;
-		await setTexture(key, dataUrl);
-		Messaging.pushShader(shader);
-		updatePreviewOnly(shader);
-		hooks.onRerender();
+		saveTextureViaExtension(key, file, shader, hooks);
 	};
 	input.click();
+}
+
+async function saveTextureViaExtension(key: ShaderChannelKey, file: File, shader: any, hooks: ChannelHooks): Promise<void> {
+	const dataUrl = await fileToDataUrl(file);
+	const requestId = `save_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+	const handler = (e: MessageEvent) => {
+		const msg = e.data;
+		if (msg?.type !== "texture:saved") return;
+		if (msg.requestId !== requestId) return;
+		window.removeEventListener("message", handler);
+
+		if (!msg.ok || !msg.path) {
+			console.warn("[Weaver:texture] save failed");
+			return;
+		}
+
+		const relativePath = msg.path as string;
+		shader.channels[key].texture = relativePath;
+
+		setTexture(key, relativePath).then((entry) => {
+			if (entry) {
+				Messaging.pushShader(shader);
+				updatePreviewOnly(shader);
+				hooks.onRerender();
+			}
+		});
+	};
+	window.addEventListener("message", handler);
+
+	postToExtension({
+		type: "texture:save",
+		requestId,
+		fileName: file.name,
+		dataUrl,
+	});
 }
 
 function hexToRgb(hex: string): [number, number, number] {
