@@ -25,7 +25,7 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 			enableScripts: true,
 			localResourceRoots: [this.context.extensionUri],
 		};
-		panel.webview.html = loadWebviewHtml(this.context, panel.webview, "viewport.html");
+		panel.webview.html = loadWebviewHtml(this.context, panel.webview, "viewport");
 
 		const initialScene = Serializer.tryDeserialize(document.getText());
 		if (!initialScene.ok) {

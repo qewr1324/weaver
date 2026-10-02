@@ -1,0 +1,126 @@
+/* src/webview/viewport/styles/toolbar.css */
+#toolbar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: #0D1117;
+    border-bottom: 1px solid #21262D;
+    z-index: 20;
+    user-select: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+}
+
+#toolbar::-webkit-scrollbar {
+    height: 4px;
+}
+
+#toolbar::-webkit-scrollbar-thumb {
+    background: #30363D;
+    border-radius: 2px;
+}
+
+.tb-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 4px;
+    border-right: 1px solid #21262D;
+}
+
+.tb-group:last-child {
+    border-right: none;
+}
+
+.tb-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-width: 28px;
+    height: 26px;
+    padding: 0 6px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: #8B949E;
+    font: 12px/1 ui-monospace, monospace;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all .12s;
+}
+
+.tb-btn:hover {
+    background: #161B22;
+    color: #C9D1D9;
+}
+
+.tb-btn.active {
+    background: #6B46C1;
+    color: #FFFFFF;
+    border-color: #A78BFA;
+    box-shadow: 0 0 0 1px #A78BFA55 inset;
+}
+
+.tb-btn .icon {
+    font-size: 14px;
+    line-height: 1;
+}
+
+.tb-btn .label {
+    font-size: 11px;
+}
+
+.tb-label {
+    color: #6E7681;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 0 4px;
+}
+
+.tb-dd-wrap {
+    position: relative;
+}
+
+.tb-dd-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    background: #161B22;
+    border: 1px solid #30363D;
+    border-radius: 4px;
+    padding: 4px;
+    min-width: 140px;
+    display: none;
+    z-index: 100;
+    box-shadow: 0 4px 12px #0008;
+}
+
+.tb-dd-wrap.open .tb-dd-menu {
+    display: block;
+}
+
+.tb-dd-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    color: #C9D1D9;
+    font-size: 12px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.tb-dd-item:hover {
+    background: #6B46C1;
+}
+
+.tb-dd-item .icon {
+    font-size: 14px;
+    width: 16px;
+    text-align: center;
+}

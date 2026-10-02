@@ -1,0 +1,53 @@
+/* src/webview/viewport/styles/overlays.css */
+#look-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 8;
+    display: none;
+}
+
+#look-overlay.active {
+    display: block;
+    box-shadow: inset 0 0 0 2px #FFA500;
+}
+
+#crosshair {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 9;
+    display: none;
+}
+
+#crosshair.active {
+    display: block;
+}
+
+#crosshair::before,
+#crosshair::after {
+    content: '';
+    position: absolute;
+    background: #FFA500;
+    box-shadow: 0 0 4px #FFA50088;
+}
+
+#crosshair::before {
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1.5px;
+    transform: translateX(-50%);
+}
+
+#crosshair::after {
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1.5px;
+    transform: translateY(-50%);
+}

@@ -2,23 +2,13 @@
 import * as fs from "node:fs";
 import * as vscode from "vscode";
 
-/**
- * اسم فایل‌هایی که می‌تونن لود بشن:
- *  - "inspector" → از dist/webview/inspector/index.html (bundled)
- *  - "viewport"  → از dist/webview/viewport/index.html (bundled)
- *  - "viewport.html" → از src/webview/viewport.html (legacy، هنوز bundle نشده)
- */
-export type WebviewEntry = "inspector" | "viewport" | "viewport.html";
+export type WebviewEntry = "inspector" | "viewport";
 
 export function loadWebviewHtml(context: vscode.ExtensionContext, webview: vscode.Webview, entry: WebviewEntry): string {
 	const nonce = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
 
-	// ── آیا bundled هست؟ (inspector/viewport بدون .html) ──
-	const isBundled = entry === "inspector" || entry === "viewport";
-
-	const baseDir = isBundled ? vscode.Uri.joinPath(context.extensionUri, "dist", "webview", entry) : vscode.Uri.joinPath(context.extensionUri, "src", "webview");
-
-	const htmlUri = isBundled ? vscode.Uri.joinPath(baseDir, "index.html") : vscode.Uri.joinPath(baseDir, entry); // مثلاً src/webview/viewport.html
+	const baseDir = vscode.Uri.joinPath(context.extensionUri, "dist", "webview", entry);
+	const htmlUri = vscode.Uri.joinPath(baseDir, "index.html");
 
 	let html: string;
 	try {
@@ -29,12 +19,9 @@ export function loadWebviewHtml(context: vscode.ExtensionContext, webview: vscod
 		</body></html>`;
 	}
 
-	// ── URIهای asset فقط برای bundled ──
-	if (isBundled) {
-		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(baseDir, "index.js"));
-		const stylesUri = webview.asWebviewUri(vscode.Uri.joinPath(baseDir, "index.css"));
-		html = html.replace(/\{\{scriptUri\}\}/g, scriptUri.toString()).replace(/\{\{stylesUri\}\}/g, stylesUri.toString());
-	}
+	const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(baseDir, "index.js"));
+	const stylesUri = webview.asWebviewUri(vscode.Uri.joinPath(baseDir, "index.css"));
+	html = html.replace(/\{\{scriptUri\}\}/g, scriptUri.toString()).replace(/\{\{stylesUri\}\}/g, stylesUri.toString());
 
 	return html.replace(/\{\{nonce\}\}/g, nonce).replace(/\{\{cspSource\}\}/g, webview.cspSource);
 }

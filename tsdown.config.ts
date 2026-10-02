@@ -21,6 +21,12 @@ const WEBVIEW_TARGETS: WebviewTarget[] = [
 		styleEntry: "src/webview/inspector/styles/index.css",
 		htmlFile: "src/webview/inspector/index.html",
 	},
+	{
+		name: "viewport",
+		scriptEntry: "src/webview/viewport/scripts/main.ts",
+		styleEntry: "src/webview/viewport/styles/index.css",
+		htmlFile: "src/webview/viewport/index.html",
+	},
 ];
 
 async function buildWebview(t: WebviewTarget): Promise<void> {
@@ -61,7 +67,6 @@ export default defineConfig({
 	clean: false,
 	hooks(hooks) {
 		hooks.hookOnce("build:prepare", async () => {
-			// فقط webviewها رو build کن — update رو کامنت کردم
 			for (const t of WEBVIEW_TARGETS) {
 				await buildWebview(t);
 			}

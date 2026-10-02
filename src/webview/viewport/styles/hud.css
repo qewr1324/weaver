@@ -1,0 +1,77 @@
+/* src/webview/viewport/styles/hud.css */
+#hud {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    color: #A78BFA;
+    font: 12px/1.6 monospace;
+    pointer-events: none;
+    background: rgba(13, 17, 23, .75);
+    padding: 8px 12px;
+    border-radius: 4px;
+    z-index: 10;
+    line-height: 1.8;
+}
+
+#hud b {
+    color: #fff;
+}
+
+#hud .k {
+    color: #6BFF8F;
+    font-weight: bold;
+}
+
+#hud .k.on {
+    color: #FFA500;
+}
+
+#fps {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    color: #6BFF8F;
+    font: 12px/1.6 monospace;
+    pointer-events: none;
+    background: rgba(13, 17, 23, .75);
+    padding: 6px 10px;
+    border-radius: 4px;
+    z-index: 10;
+}
+
+#status {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #6BFF8F;
+    font: 11px monospace;
+    pointer-events: none;
+    background: rgba(13, 17, 23, .8);
+    padding: 4px 12px;
+    border-radius: 4px;
+    z-index: 10;
+    transition: color .15s;
+    white-space: nowrap;
+}
+
+#status.off {
+    color: #6E7681;
+}
+
+#status.look {
+    color: #FFA500;
+    font-weight: bold;
+}
+
+#loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #A78BFA;
+    font: 14px monospace;
+    z-index: 5;
+    background: #1a1f2e;
+}

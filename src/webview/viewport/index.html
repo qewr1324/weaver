@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none';
+           style-src {{cspSource}} 'unsafe-inline';
+           script-src 'nonce-{{nonce}}' https://cdn.babylonjs.com 'unsafe-eval';
+           connect-src https://cdn.babylonjs.com;
+           worker-src blob:;" />
+    <link rel="stylesheet" href="{{stylesUri}}" />
+</head>
+
+<body>
+    <div id="viewport">
+        <div id="toolbar">
+            <div class="tb-group">
+                <div class="tb-dd-wrap" id="addObjWrap">
+                    <button class="tb-btn" id="addObjBtn" title="Add Object">
+                        <span class="icon">＋</span>
+                        <span class="label">Add</span>
+                    </button>
+                    <div class="tb-dd-menu" id="addObjMenu"></div>
+                </div>
+            </div>
+
+            <div class="tb-group" id="transformGroup">
+                <span class="tb-label">Gizmo</span>
+            </div>
+
+            <div class="tb-group" id="refGroup">
+                <span class="tb-label">Space</span>
+            </div>
+
+            <div class="tb-group" id="shaderGroup">
+                <span class="tb-label">View</span>
+            </div>
+
+            <div class="tb-group" id="snapGroup">
+                <span class="tb-label">Snap</span>
+            </div>
+
+            <div class="tb-group">
+                <button class="tb-btn" id="lookModeBtn" title="Toggle Look Mode (F)">
+                    <span class="icon">👁</span>
+                    <span class="label">Look</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="canvas-wrap">
+            <div id="look-overlay"></div>
+            <div id="crosshair"></div>
+            <div id="hud">
+                <b>Weaver Viewport</b><br />
+                <span class="k" id="hudLookKey">F</span> toggle look mode &nbsp;
+                <span class="k">IJKL</span>/<span class="k">Arrows</span> look<br />
+                <span class="k">WASD</span> move &nbsp; <span class="k">Q/E</span> down/up<br />
+                <span class="k">Shift</span> fast &nbsp; <span class="k">Space</span> slow &nbsp;
+                <span class="k">Wheel</span> speed<br />
+                <span class="k">LMB</span> select &nbsp; <span class="k">Esc</span> deselect &nbsp;
+                <span class="k">Del</span> delete
+            </div>
+            <div id="fps">-- FPS</div>
+            <div id="status" class="off">● F to look · WASD to move</div>
+            <div id="loading">Loading Babylon…</div>
+            <canvas id="renderCanvas" tabindex="0"></canvas>
+        </div>
+    </div>
+
+    <script nonce="{{nonce}}" src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script nonce="{{nonce}}" src="{{scriptUri}}"></script>
+</body>
+
+</html>
