@@ -3,6 +3,7 @@ import { formatNum } from "../../../shared/format";
 import { setBodyCursor } from "../../../shared/dom";
 import { Messaging } from "../messaging";
 import { state } from "../state";
+import { eulerToQuat } from "../utils/quaternion";
 
 export function bindTransformInputs(root: HTMLElement): void {
 	bindNumericInputs(root);
@@ -32,16 +33,53 @@ function bindNumericInputs(root: HTMLElement): void {
 			if (raw === "" || raw === "-" || raw === "." || raw === "-.") return;
 			const parsed = parseFloat(raw);
 			if (!Number.isFinite(parsed)) return;
-			if (state.current) {
-				(state.current.transform as any)[inp.dataset.ch!][inp.dataset.ax!] = parsed;
-			}
 			if (!state.current) return;
-			Messaging.scheduleTransformUpdate({
-				nodeId: state.current.id,
-				channel: inp.dataset.ch!,
-				axis: inp.dataset.ax!,
-				value: parsed,
-			});
+
+			const ch = inp.dataset.ch!;
+			const ax = inp.dataset.ax!;
+
+			if (ch === "rotation") {
+				// ⭐ localEuler رو آپدیت کن (نه quaternion)
+				(state.localEuler as any)[ax] = parsed;
+
+				// ⭐ حالا کل quaternion رو از localEuler بساز
+				const q = eulerToQuat(state.localEuler);
+				state.current.transform.rotation = { x: q.x, y: q.y, z: q.z, w: q.w };
+
+				// ⭐ هر ۴ کامپوننت quaternion رو بفرست
+				Messaging.scheduleTransformUpdate({
+					nodeId: state.current.id,
+					channel: "rotation",
+					axis: "x",
+					value: q.x,
+				});
+				Messaging.scheduleTransformUpdate({
+					nodeId: state.current.id,
+					channel: "rotation",
+					axis: "y",
+					value: q.y,
+				});
+				Messaging.scheduleTransformUpdate({
+					nodeId: state.current.id,
+					channel: "rotation",
+					axis: "z",
+					value: q.z,
+				});
+				Messaging.scheduleTransformUpdate({
+					nodeId: state.current.id,
+					channel: "rotation",
+					axis: "w",
+					value: q.w,
+				});
+			} else {
+				(state.current.transform as any)[ch][ax] = parsed;
+				Messaging.scheduleTransformUpdate({
+					nodeId: state.current.id,
+					channel: ch,
+					axis: ax,
+					value: parsed,
+				});
+			}
 		});
 
 		inp.addEventListener("keydown", (e) => {
@@ -53,7 +91,11 @@ function bindNumericInputs(root: HTMLElement): void {
 			if (e.key === "Escape") {
 				e.preventDefault();
 				if (state.current) {
-					inp.value = formatNum((state.current.transform as any)[inp.dataset.ch!][inp.dataset.ax!]);
+					if (inp.dataset.ch === "rotation") {
+						inp.value = formatNum((state.localEuler as any)[inp.dataset.ax!]);
+					} else {
+						inp.value = formatNum((state.current.transform as any)[inp.dataset.ch!][inp.dataset.ax!]);
+					}
 				}
 				inp.blur();
 			}
@@ -82,7 +124,16 @@ function bindDragLabels(root: HTMLElement): void {
 			dragging = true;
 			startX = e.clientX;
 			const [ch, ax] = lbl.dataset.drag!.split(".");
-			startVal = state.current ? (state.current.transform as any)[ch][ax] || 0 : 0;
+
+			if (!state.current) {
+				startVal = 0;
+			} else if (ch === "rotation") {
+				// ⭐ از localEuler شروع کن
+				startVal = (state.localEuler as any)[ax] || 0;
+			} else {
+				startVal = (state.current.transform as any)[ch][ax] || 0;
+			}
+
 			setBodyCursor("ew-resize");
 		});
 
@@ -116,6 +167,51 @@ function bindResetButtons(root: HTMLElement): void {
 		btn.addEventListener("click", () => {
 			const [ch, ax] = btn.dataset.reset!.split(".");
 			const def = parseFloat(btn.dataset.default || "0");
+
+			if (ch === "rotation") {
+				if (!state.current) return;
+				// ⭐ reset کل rotation → Euler = 0
+				state.localEuler.x = 0;
+				state.localEuler.y = 0;
+				state.localEuler.z = 0;
+
+				const q = eulerToQuat({ x: 0, y: 0, z: 0 });
+				state.current.transform.rotation = { x: q.x, y: q.y, z: q.z, w: q.w };
+
+				Messaging.scheduleTransformUpdate({
+					nodeId: state.current.id,
+					channel: "rotation",
+					axis: "x",
+					value: q.x,
+				});
+				Messaging.scheduleTransformUpdate({
+					nodeId: state.current.id,
+					channel: "rotation",
+					axis: "y",
+					value: q.y,
+				});
+				Messaging.scheduleTransformUpdate({
+					nodeId: state.current.id,
+					channel: "rotation",
+					axis: "z",
+					value: q.z,
+				});
+				Messaging.scheduleTransformUpdate({
+					nodeId: state.current.id,
+					channel: "rotation",
+					axis: "w",
+					value: q.w,
+				});
+				Messaging.flushTransformUpdates();
+
+				// همه inputهای rotation رو صفر کن
+				for (const a of ["x", "y", "z"]) {
+					const i = root.querySelector<HTMLInputElement>(`input[data-ch="rotation"][data-ax="${a}"]`);
+					if (i) i.value = formatNum(0);
+				}
+				return;
+			}
+
 			const inp = root.querySelector<HTMLInputElement>(`input[data-ch="${ch}"][data-ax="${ax}"]`);
 			if (inp) {
 				inp.value = formatNum(def);

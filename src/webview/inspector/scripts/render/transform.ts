@@ -16,11 +16,18 @@ export function renderTransform(state: InspectorState): string {
 
 	for (const ch of channels) {
 		for (const ax of AXES) {
-			const v = (c.transform as any)[ch.key][ax];
+			let v: number;
+			if (ch.key === "rotation") {
+				// ⭐ از localEuler استفاده کن
+				v = (state.localEuler as any)[ax];
+			} else {
+				v = (c.transform as any)[ch.key][ax];
+			}
+
 			html += `<div class="row">
 				<label title="${ch.label}.${ax.toUpperCase()} — drag to change"
 					   data-drag="${ch.key}.${ax}"
-					   data-step="${ch.key === "scale" ? 0.01 : 0.1}">${ax.toUpperCase()}</label>
+					   data-step="${ch.key === "scale" ? 0.01 : ch.key === "rotation" ? 1 : 0.1}">${ax.toUpperCase()}</label>
 				<input type="number" step="any"
 					   data-ch="${ch.key}" data-ax="${ax}"
 					   value="${formatNum(v)}"

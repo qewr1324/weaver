@@ -35,12 +35,10 @@ export function applyGizmoMode(): void {
 	const mode = editor.transformMode;
 	const target = selectedIds[0] ? nodeIdToRoot.get(selectedIds[0]) || nodeIdToMesh.get(selectedIds[0]) : null;
 
-	// ۱. اول همه رو غیرفعال کن (این dispose نمی‌کنه، فقط hide)
 	gizmoManager.positionGizmoEnabled = false;
 	gizmoManager.rotationGizmoEnabled = false;
 	gizmoManager.scaleGizmoEnabled = false;
 
-	// ۲. مطمئن شو gizmoهای غیرفعال attach نداشته باشن
 	if (gizmoManager.gizmos.positionGizmo) {
 		gizmoManager.gizmos.positionGizmo.attachedNode = null;
 	}
@@ -51,12 +49,10 @@ export function applyGizmoMode(): void {
 		gizmoManager.gizmos.scaleGizmo.attachedNode = null;
 	}
 
-	// ۳. حالا فقط gizmo مناسب رو فعال کن
 	if (mode === "move") gizmoManager.positionGizmoEnabled = true;
 	else if (mode === "rotate") gizmoManager.rotationGizmoEnabled = true;
 	else if (mode === "scale") gizmoManager.scaleGizmoEnabled = true;
 
-	// ۴. تنظیمات reference mode
 	const matchObj = editor.referenceMode === "object";
 
 	if (mode === "move" && gizmoManager.gizmos.positionGizmo) {
@@ -66,11 +62,7 @@ export function applyGizmoMode(): void {
 	if (mode === "rotate" && gizmoManager.gizmos.rotationGizmo) {
 		gizmoManager.gizmos.rotationGizmo.updateGizmoRotationToMatchAttachedMesh = matchObj;
 	}
-	if (mode === "scale" && gizmoManager.gizmos.scaleGizmo) {
-		gizmoManager.gizmos.scaleGizmo.updateGizmoRotationToMatchAttachedMesh = matchObj;
-	}
 
-	// ۵. فقط gizmo فعال رو به target وصل کن
 	if (target) {
 		if (target.getClassName && target.getClassName() === "TransformNode") {
 			if (mode === "move" && gizmoManager.gizmos.positionGizmo) {

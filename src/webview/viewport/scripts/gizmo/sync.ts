@@ -1,27 +1,40 @@
 // src/webview/viewport/scripts/gizmo/sync.ts
-import { gizmoManager, meshToNodeId, rootToNodeId, gizmoListenersAttached, suppressGizmoSync, nodeIdToRoot, nodeIdToMesh, setSuppressGizmoSync } from "../state";
+import { gizmoManager, meshToNodeId, rootToNodeId, gizmoListenersAttached, suppressGizmoSync, nodeIdToRoot, nodeIdToMesh, setSuppressGizmoSync, selectedIds, scene } from "../state";
 import { postToExtension } from "../messaging";
 
-function postTransform(attached: any, live: boolean): void {
-	if (suppressGizmoSync) return;
-	const nodeId = meshToNodeId.get(attached) || rootToNodeId.get(attached);
-	if (!nodeId) return;
+function readTransform(attached: any) {
 	const BABYLON = (window as any).BABYLON;
-	const worldPos = attached.getAbsolutePosition();
-	const worldScale = attached.absoluteScaling || attached.scaling;
-	const q = attached.rotationQuaternion || BABYLON.Quaternion.FromEulerVector(attached.rotation);
 
-	postToExtension({
-		type: "update:transform",
-		nodeId,
-		transform: {
-			position: { x: worldPos.x, y: worldPos.y, z: worldPos.z },
-			rotation: { x: q.x, y: q.y, z: q.z, w: q.w },
-			scale: { x: worldScale.x, y: worldScale.y, z: worldScale.z },
-		},
-		source: "viewport",
-		live,
-	});
+	attached.computeWorldMatrix?.(true);
+
+	const pos = attached.getAbsolutePosition();
+	const position = { x: pos.x, y: pos.y, z: pos.z };
+
+	let rotation;
+	if (attached.rotationQuaternion) {
+		rotation = {
+			x: attached.rotationQuaternion.x,
+			y: attached.rotationQuaternion.y,
+			z: attached.rotationQuaternion.z,
+			w: attached.rotationQuaternion.w,
+		};
+	} else {
+		const q = BABYLON.Quaternion.FromEulerVector(attached.rotation);
+		rotation = { x: q.x, y: q.y, z: q.z, w: q.w };
+	}
+
+	const sc = attached.absoluteScaling ?? attached.scaling;
+	const scale = { x: sc.x, y: sc.y, z: sc.z };
+
+	return { position, rotation, scale };
+}
+
+function readTransformByNodeId(nodeId: string) {
+	const root = nodeIdToRoot.get(nodeId);
+	const mesh = nodeIdToMesh.get(nodeId);
+	const target = root || mesh;
+	if (!target) return null;
+	return readTransform(target);
 }
 
 export function setupGizmoSync(): void {
@@ -30,35 +43,107 @@ export function setupGizmoSync(): void {
 	const attach = (gizmoName: string) => {
 		const gizmo = gizmoManager.gizmos[gizmoName];
 		if (!gizmo) return;
-		// ⭐ اگه قبلاً listener بستیم، دوباره نبند
 		if (gizmoListenersAttached.has(gizmo)) return;
 		gizmoListenersAttached.add(gizmo);
 
-		let dragThrottle: ReturnType<typeof setTimeout> | null = null;
+		console.log("[Weaver:sync] attaching listeners to", gizmoName);
+
 		gizmo.onDragObservable.add(() => {
-			if (dragThrottle) return;
-			dragThrottle = setTimeout(() => {
-				dragThrottle = null;
-				const target = gizmo.attachedNode || gizmoManager.attachedMesh;
-				if (target) postTransform(target, true);
-			}, 16);
+			const nodeId = selectedIds[0];
+			if (!nodeId) return;
+			const transform = readTransformByNodeId(nodeId);
+			if (!transform) return;
+
+			postToExtension({
+				type: "update:transform",
+				nodeId,
+				transform,
+				source: "viewport",
+				live: true,
+			});
 		});
 
 		gizmo.onDragEndObservable.add(() => {
-			if (dragThrottle) {
-				clearTimeout(dragThrottle);
-				dragThrottle = null;
-			}
-			const target = gizmo.attachedNode || gizmoManager.attachedMesh;
-			if (target) postTransform(target, false);
-		});
+			const nodeId = selectedIds[0];
+			if (!nodeId) return;
+			const transform = readTransformByNodeId(nodeId);
+			if (!transform) return;
 
-		console.log("[Weaver] gizmoSync attached:", gizmoName);
+			console.log("[Weaver:sync] onDragEnd → live:false", nodeId);
+
+			postToExtension({
+				type: "update:transform",
+				nodeId,
+				transform,
+				source: "viewport",
+				live: false,
+			});
+		});
 	};
 
 	attach("positionGizmo");
 	attach("rotationGizmo");
 	attach("scaleGizmo");
+
+	setupPolling();
+}
+
+let pollingSetup = false;
+let wasDragging = false;
+let lastKey: string | null = null;
+
+function setupPolling(): void {
+	if (pollingSetup) return;
+	if (!scene) return;
+	pollingSetup = true;
+
+	console.log("[Weaver:sync] polling setup");
+
+	scene.onBeforeRenderObservable.add(() => {
+		if (!gizmoManager) return;
+		if (suppressGizmoSync) return;
+
+		const nodeId = selectedIds[0];
+		if (!nodeId) return;
+
+		const isDragging = !!(gizmoManager.gizmos.positionGizmo?.isDragging || gizmoManager.gizmos.rotationGizmo?.isDragging || gizmoManager.gizmos.scaleGizmo?.isDragging);
+
+		// drag end transition
+		if (wasDragging && !isDragging) {
+			const transform = readTransformByNodeId(nodeId);
+			if (transform) {
+				console.log("[Weaver:sync] polling drag end → live:false", nodeId);
+				postToExtension({
+					type: "update:transform",
+					nodeId,
+					transform,
+					source: "viewport",
+					live: false,
+				});
+			}
+			wasDragging = false;
+			lastKey = null;
+			return;
+		}
+
+		if (!isDragging) return;
+
+		const transform = readTransformByNodeId(nodeId);
+		if (!transform) return;
+
+		const key = nodeId + ":" + JSON.stringify(transform);
+		if (key === lastKey) return;
+		lastKey = key;
+		wasDragging = true;
+
+		postToExtension({
+			type: "update:transform",
+			nodeId,
+			transform,
+			source: "viewport",
+			live: true,
+		});
+	});
 }
 
 export function applyTransformFromInspector(payload: any): void {
@@ -77,7 +162,10 @@ export function applyTransformFromInspector(payload: any): void {
 				root.position.set(transform.position.x, transform.position.y, transform.position.z);
 			}
 			if (transform.rotation) {
-				root.rotationQuaternion = new BABYLON.Quaternion(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+				if (!root.rotationQuaternion) {
+					root.rotationQuaternion = BABYLON.Quaternion.Identity();
+				}
+				root.rotationQuaternion.set(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 			}
 			if (transform.scale) {
 				root.scaling.set(transform.scale.x, transform.scale.y, transform.scale.z);

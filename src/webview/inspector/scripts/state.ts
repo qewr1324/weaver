@@ -27,6 +27,8 @@ export interface InspectorState {
 	multiNames: string[];
 	focusedFieldId: string | null;
 	propertyFilter: string;
+	/** ⭐ cache از Euler rotation برای نمایش و ویرایش */
+	localEuler: { x: number; y: number; z: number };
 }
 
 export const state: InspectorState = {
@@ -36,6 +38,7 @@ export const state: InspectorState = {
 	multiNames: [],
 	focusedFieldId: null,
 	propertyFilter: "",
+	localEuler: { x: 0, y: 0, z: 0 },
 };
 
 export function setSelection(payload: InspectorPayload | null, opts: { multi: boolean; count: number; names: string[] }): void {
