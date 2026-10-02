@@ -4,7 +4,7 @@ import { rotate } from "../index";
 import { exitLookMode, toggleLookMode, setStatus } from "../../look-mode";
 import { setTransformMode } from "../../gizmo";
 import { postToExtension } from "../../messaging";
-import { scheduleSaveCamera } from "../../camera-persist"; // ✨ جدید
+import { scheduleSaveCamera } from "../../camera-persist";
 
 let fallbackX = 0;
 let fallbackY = 0;
@@ -49,7 +49,7 @@ function handleGlobalKey(code: string, e: KeyboardEvent): boolean {
 		return true;
 	}
 
-	// ✨ جدید — Ctrl/Cmd + Shift + A → deselect all
+	// Ctrl/Cmd + Shift + A → deselect all
 	if ((e.ctrlKey || e.metaKey) && e.shiftKey && code === "KeyA") {
 		e.preventDefault();
 		e.stopPropagation();
@@ -57,7 +57,7 @@ function handleGlobalKey(code: string, e: KeyboardEvent): boolean {
 		return true;
 	}
 
-	// ✨ جدید — Ctrl/Cmd + Shift + G → toggle grid visibility
+	// Ctrl/Cmd + Shift + G → toggle grid visibility
 	if ((e.ctrlKey || e.metaKey) && e.shiftKey && code === "KeyG") {
 		e.preventDefault();
 		e.stopPropagation();
@@ -65,29 +65,38 @@ function handleGlobalKey(code: string, e: KeyboardEvent): boolean {
 		if (sc) {
 			const grid = sc.getMeshByName("__grid");
 			if (grid) grid.isVisible = !grid.isVisible;
+			const axX = sc.getMeshByName("__axis_x");
+			if (axX) axX.isVisible = grid?.isVisible ?? true;
+			const axZ = sc.getMeshByName("__axis_z");
+			if (axZ) axZ.isVisible = grid?.isVisible ?? true;
 		}
 		return true;
 	}
 
-	// ✨ جدید — Home → focus (focus.ts هم listener داره، اینجا برای جلوگیری از default)
+	// Home → focus
 	if (code === "Home") {
 		e.preventDefault();
 		e.stopPropagation();
-		// focus توسط focus.ts هندل میشه
 		return true;
 	}
 
-	// G / R / T → transform mode (only when not in look mode)
-	if (!lookState.active && !e.ctrlKey && !e.metaKey) {
-		if (code === "KeyG") {
+	// ✅ W / E / R → transform mode (فقط وقتی در look mode نیستیم و modifier نداریم)
+	if (!lookState.active && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+		if (code === "KeyW") {
+			e.preventDefault();
+			e.stopPropagation();
 			setTransformMode("move");
 			return true;
 		}
-		if (code === "KeyR") {
+		if (code === "KeyE") {
+			e.preventDefault();
+			e.stopPropagation();
 			setTransformMode("rotate");
 			return true;
 		}
-		if (code === "KeyT") {
+		if (code === "KeyR") {
+			e.preventDefault();
+			e.stopPropagation();
 			setTransformMode("scale");
 			return true;
 		}
@@ -102,8 +111,6 @@ export function setupInput(): void {
 	document.addEventListener(
 		"contextmenu",
 		(e) => {
-			// ✨ اجازه بده context menu سفارشی کار کنه — فقط روی canvas prevent کن
-			// (context-menu.ts خودش preventDefault می‌کنه)
 			if ((e.target as HTMLElement)?.id === "renderCanvas") {
 				e.preventDefault();
 			}
@@ -119,7 +126,7 @@ export function setupInput(): void {
 			camState.baseSpeed *= e.deltaY > 0 ? 0.9 : 1.1;
 			camState.baseSpeed = Math.max(0.05, Math.min(20, camState.baseSpeed));
 			setStatus("● Speed: " + camState.baseSpeed.toFixed(2), true);
-			scheduleSaveCamera(); // ✨ جدید
+			scheduleSaveCamera();
 		},
 		{ passive: false },
 	);
@@ -136,7 +143,7 @@ export function setupInput(): void {
 		rotate(e.movementX, e.movementY);
 	});
 
-	// fallback mousemove (وقتی pointer lock نداریم)
+	// fallback mousemove
 	window.addEventListener("mousemove", (e: MouseEvent) => {
 		if (!lookState.active) return;
 		if (lookState.pointerLocked) return;

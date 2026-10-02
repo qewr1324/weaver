@@ -60,21 +60,52 @@ function boot(): void {
 	const amb = new BABYLON.HemisphericLight("amb", new BABYLON.Vector3(0, 1, 0), sc);
 	amb.intensity = 0.8;
 
-	// grid
-	const grid = BABYLON.MeshBuilder.CreateGround("__grid", { width: 100, height: 100 }, sc);
-	try {
-		const gm = new BABYLON.GridMaterial("__gm", sc);
-		gm.majorUnitFrequency = 10;
-		gm.minorUnitVisibility = 0.35;
-		gm.mainColor = new BABYLON.Color3(0.3, 0.33, 0.4);
-		gm.lineColor = new BABYLON.Color3(0.5, 0.52, 0.6);
-		grid.material = gm;
-	} catch {
-		const sm = new BABYLON.StandardMaterial("__sm", sc);
-		sm.diffuseColor = new BABYLON.Color3(0.2, 0.22, 0.28);
-		grid.material = sm;
+	// grid — ✅ حالا یه Grid واقعی (نه plane)
+	// با LineSystem ساخته میشه تا هیچ mesh توپری وجود نداشته باشه
+	const gridLines: any[] = [];
+	const gridSize = 100;
+	const halfGrid = gridSize / 2;
+	const step = 1; // هر ۱ واحد
+
+	// خطوط موازی با X (یعنی خطوط در جهت Z)
+	for (let i = -halfGrid; i <= halfGrid; i += step) {
+		gridLines.push([new BABYLON.Vector3(-halfGrid, 0, i), new BABYLON.Vector3(halfGrid, 0, i)]);
 	}
+	// خطوط موازی با Z (یعنی خطوط در جهت X)
+	for (let i = -halfGrid; i <= halfGrid; i += step) {
+		gridLines.push([new BABYLON.Vector3(i, 0, -halfGrid), new BABYLON.Vector3(i, 0, halfGrid)]);
+	}
+
+	const grid = BABYLON.MeshBuilder.CreateLineSystem("__grid", { lines: gridLines }, sc);
+	grid.color = new BABYLON.Color3(0.35, 0.38, 0.45); // خطوط کم‌رنگ
+	grid.alpha = 0.6;
 	grid.isPickable = false;
+	grid.alwaysSelectAsActiveMesh = true;
+
+	// ✅ خطوط محورها (X قرمز، Z آبی) روی grid
+	const axisX = BABYLON.MeshBuilder.CreateLines(
+		"__axis_x",
+		{
+			points: [new BABYLON.Vector3(-halfGrid, 0, 0), new BABYLON.Vector3(halfGrid, 0, 0)],
+		},
+		sc,
+	);
+	axisX.color = new BABYLON.Color3(0.8, 0.3, 0.3);
+	axisX.alpha = 0.8;
+	axisX.isPickable = false;
+	axisX.alwaysSelectAsActiveMesh = true;
+
+	const axisZ = BABYLON.MeshBuilder.CreateLines(
+		"__axis_z",
+		{
+			points: [new BABYLON.Vector3(0, 0, -halfGrid), new BABYLON.Vector3(0, 0, halfGrid)],
+		},
+		sc,
+	);
+	axisZ.color = new BABYLON.Color3(0.3, 0.5, 0.8);
+	axisZ.alpha = 0.8;
+	axisZ.isPickable = false;
+	axisZ.alwaysSelectAsActiveMesh = true;
 
 	// ✅ HighlightLayer حذف شد — حالا از outline استفاده می‌کنیم (سبک‌تر)
 	// setHighlightLayer دیگه صدا زده نمیشه، پس highlightLayer null می‌مونه
