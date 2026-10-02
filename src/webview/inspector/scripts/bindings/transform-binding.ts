@@ -1,14 +1,34 @@
 // src/webview/inspector/scripts/bindings/transform-binding.ts
 import { formatNum } from "../../../shared/format";
 import { setBodyCursor } from "../../../shared/dom";
+import { isPinned, togglePin } from "../pin-lock";
 import { Messaging } from "../messaging";
 import { state } from "../state";
 import { eulerToQuat } from "../utils/quaternion";
 
 export function bindTransformInputs(root: HTMLElement): void {
+	bindPinButtons(root);
 	bindNumericInputs(root);
 	bindDragLabels(root);
 	bindResetButtons(root);
+}
+
+function bindPinButtons(root: HTMLElement): void {
+	root.querySelectorAll<HTMLLabelElement>("label[data-pin]").forEach((btn) => {
+		btn.addEventListener("click", (e) => {
+			e.stopPropagation();
+			const fieldId = btn.dataset.pin!;
+			const nowPinned = togglePin(fieldId);
+
+			// آپدیت UI
+			btn.textContent = nowPinned ? "📌" : "○";
+			btn.classList.toggle("pinned", nowPinned);
+			btn.title = nowPinned ? "Unpin" : "Pin this field";
+
+			const row = btn.closest<HTMLElement>(".row");
+			row?.classList.toggle("pinned-row", nowPinned);
+		});
+	});
 }
 
 function bindNumericInputs(root: HTMLElement): void {
@@ -39,38 +59,18 @@ function bindNumericInputs(root: HTMLElement): void {
 			const ax = inp.dataset.ax!;
 
 			if (ch === "rotation") {
-				// ⭐ localEuler رو آپدیت کن (نه quaternion)
 				(state.localEuler as any)[ax] = parsed;
-
-				// ⭐ حالا کل quaternion رو از localEuler بساز
 				const q = eulerToQuat(state.localEuler);
 				state.current.transform.rotation = { x: q.x, y: q.y, z: q.z, w: q.w };
 
-				// ⭐ هر ۴ کامپوننت quaternion رو بفرست
-				Messaging.scheduleTransformUpdate({
-					nodeId: state.current.id,
-					channel: "rotation",
-					axis: "x",
-					value: q.x,
-				});
-				Messaging.scheduleTransformUpdate({
-					nodeId: state.current.id,
-					channel: "rotation",
-					axis: "y",
-					value: q.y,
-				});
-				Messaging.scheduleTransformUpdate({
-					nodeId: state.current.id,
-					channel: "rotation",
-					axis: "z",
-					value: q.z,
-				});
-				Messaging.scheduleTransformUpdate({
-					nodeId: state.current.id,
-					channel: "rotation",
-					axis: "w",
-					value: q.w,
-				});
+				for (const a of ["x", "y", "z", "w"] as const) {
+					Messaging.scheduleTransformUpdate({
+						nodeId: state.current.id,
+						channel: "rotation",
+						axis: a,
+						value: (q as any)[a],
+					});
+				}
 			} else {
 				(state.current.transform as any)[ch][ax] = parsed;
 				Messaging.scheduleTransformUpdate({
@@ -121,14 +121,18 @@ function bindDragLabels(root: HTMLElement): void {
 
 		lbl.addEventListener("mousedown", (e) => {
 			e.preventDefault();
+			const fieldId = lbl.dataset.drag!;
+
+			// اگه pinned باشه، drag غیرفعاله
+			if (isPinned(fieldId)) return;
+
 			dragging = true;
 			startX = e.clientX;
-			const [ch, ax] = lbl.dataset.drag!.split(".");
+			const [ch, ax] = fieldId.split(".");
 
 			if (!state.current) {
 				startVal = 0;
 			} else if (ch === "rotation") {
-				// ⭐ از localEuler شروع کن
 				startVal = (state.localEuler as any)[ax] || 0;
 			} else {
 				startVal = (state.current.transform as any)[ch][ax] || 0;
@@ -170,7 +174,6 @@ function bindResetButtons(root: HTMLElement): void {
 
 			if (ch === "rotation") {
 				if (!state.current) return;
-				// ⭐ reset کل rotation → Euler = 0
 				state.localEuler.x = 0;
 				state.localEuler.y = 0;
 				state.localEuler.z = 0;
@@ -178,33 +181,16 @@ function bindResetButtons(root: HTMLElement): void {
 				const q = eulerToQuat({ x: 0, y: 0, z: 0 });
 				state.current.transform.rotation = { x: q.x, y: q.y, z: q.z, w: q.w };
 
-				Messaging.scheduleTransformUpdate({
-					nodeId: state.current.id,
-					channel: "rotation",
-					axis: "x",
-					value: q.x,
-				});
-				Messaging.scheduleTransformUpdate({
-					nodeId: state.current.id,
-					channel: "rotation",
-					axis: "y",
-					value: q.y,
-				});
-				Messaging.scheduleTransformUpdate({
-					nodeId: state.current.id,
-					channel: "rotation",
-					axis: "z",
-					value: q.z,
-				});
-				Messaging.scheduleTransformUpdate({
-					nodeId: state.current.id,
-					channel: "rotation",
-					axis: "w",
-					value: q.w,
-				});
+				for (const a of ["x", "y", "z", "w"] as const) {
+					Messaging.scheduleTransformUpdate({
+						nodeId: state.current.id,
+						channel: "rotation",
+						axis: a,
+						value: (q as any)[a],
+					});
+				}
 				Messaging.flushTransformUpdates();
 
-				// همه inputهای rotation رو صفر کن
 				for (const a of ["x", "y", "z"]) {
 					const i = root.querySelector<HTMLInputElement>(`input[data-ch="rotation"][data-ax="${a}"]`);
 					if (i) i.value = formatNum(0);

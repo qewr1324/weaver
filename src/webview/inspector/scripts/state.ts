@@ -29,6 +29,8 @@ export interface InspectorState {
 	propertyFilter: string;
 	/** ⭐ cache از Euler rotation برای نمایش و ویرایش */
 	localEuler: { x: number; y: number; z: number };
+	/** ✨ جدید — آرایه‌ی payload همه‌ی selection ها برای multi-edit */
+	multiData: InspectorPayload[];
 }
 
 export const state: InspectorState = {
@@ -39,13 +41,24 @@ export const state: InspectorState = {
 	focusedFieldId: null,
 	propertyFilter: "",
 	localEuler: { x: 0, y: 0, z: 0 },
+	multiData: [], // ✨ جدید
 };
 
-export function setSelection(payload: InspectorPayload | null, opts: { multi: boolean; count: number; names: string[] }): void {
+export function setSelection(
+	payload: InspectorPayload | null,
+	opts: {
+		multi: boolean;
+		count: number;
+		names: string[];
+		/** ✨ جدید — اگه extension آرایه‌ی کامل رو فرستاد */
+		all?: InspectorPayload[];
+	},
+): void {
 	state.current = payload;
 	state.isMulti = opts.multi;
 	state.count = opts.count;
 	state.multiNames = opts.names;
+	state.multiData = opts.all || (payload ? [payload] : []); // ✨ جدید
 }
 
 export const AXES = ["x", "y", "z"] as const;

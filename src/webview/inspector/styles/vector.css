@@ -1,0 +1,54 @@
+/* src/webview/inspector/styles/vector.css */
+.vec-group {
+    display: flex;
+    flex: 1;
+    gap: 3px;
+    min-width: 0;
+}
+
+.vec-cell {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.vec-axis {
+    font-size: 9px;
+    color: var(--wv-fg-muted);
+    font-weight: 600;
+    text-align: center;
+    min-width: 10px;
+}
+
+.vec-cell input[type="number"] {
+    flex: 1;
+    min-width: 0;
+    background: var(--wv-input-bg);
+    border: 1px solid var(--wv-input-border);
+    color: var(--wv-input-fg);
+    padding: 2px 4px;
+    border-radius: var(--wv-radius, 2px);
+    font: inherit;
+    font-size: 11px;
+    height: 20px;
+    outline: none;
+}
+
+.vec-cell input[type="number"]:focus {
+    border-color: var(--wv-border-focus);
+    outline: 1px solid var(--wv-border-focus);
+    outline-offset: -1px;
+}
+
+.comp-disabled-tag {
+    font-size: 9px;
+    color: var(--wv-warn);
+    font-weight: 400;
+    text-transform: lowercase;
+    padding: 1px 5px;
+    background: rgba(210, 153, 34, 0.15);
+    border-radius: var(--wv-radius, 2px);
+    margin-left: auto;
+}

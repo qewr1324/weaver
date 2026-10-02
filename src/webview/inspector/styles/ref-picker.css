@@ -1,0 +1,43 @@
+/* src/webview/inspector/styles/ref-picker.css */
+.ref-row {
+    display: flex;
+    flex: 1;
+    gap: 3px;
+    min-width: 0;
+}
+
+.ref-row input {
+    flex: 1;
+    min-width: 0;
+    background: var(--wv-input-bg);
+    border: 1px solid var(--wv-input-border);
+    color: var(--wv-input-fg);
+    padding: 2px 6px;
+    border-radius: var(--wv-radius, 2px);
+    font: inherit;
+    font-size: 12px;
+    height: 20px;
+    outline: none;
+}
+
+.ref-row input:focus {
+    border-color: var(--wv-border-focus);
+}
+
+.ref-btn {
+    background: var(--wv-btn-secondary-bg);
+    border: 1px solid transparent;
+    color: var(--wv-btn-secondary-fg);
+    padding: 0 6px;
+    border-radius: var(--wv-radius, 2px);
+    cursor: pointer;
+    font-size: 11px;
+    height: 20px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: background .1s;
+}
+
+.ref-btn:hover {
+    background: var(--wv-btn-secondary-bg-hover);
+}
