@@ -2,7 +2,7 @@
 import * as fs from "node:fs";
 import * as vscode from "vscode";
 
-export type WebviewEntry = "inspector" | "viewport";
+export type WebviewEntry = "inspector" | "viewport" | "shader";
 
 export function loadWebviewHtml(context: vscode.ExtensionContext, webview: vscode.Webview, entry: WebviewEntry): string {
 	const nonce = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);

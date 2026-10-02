@@ -3,7 +3,7 @@
 	"type": "module",
 	"displayName": "Weaver",
 	"description": "🛡️ Weaver - a 3D game editor from TS/JS for 💠 VSCode. ",
-	"version": "0.167.148",
+	"version": "0.216.148",
 	"private": false,
 	"publisher": "GhurbeSABZI",
 	"packageManager": "bun@1.3.14",
@@ -53,6 +53,26 @@
 				"selector": [
 					{
 						"filenamePattern": "*.weave.json"
+					}
+				],
+				"priority": "default"
+			},
+			{
+				"viewType": "weaver.viewport",
+				"displayName": "Weaver 3D Viewport",
+				"selector": [
+					{
+						"filenamePattern": "*.weave.json"
+					}
+				],
+				"priority": "default"
+			},
+			{
+				"viewType": "weaver.shader",
+				"displayName": "Weaver Shader Editor",
+				"selector": [
+					{
+						"filenamePattern": "*.weave.shader.json"
 					}
 				],
 				"priority": "default"
@@ -137,6 +157,11 @@
 				"command": "weaver.openDefaultScene",
 				"title": "Weaver: Open level-1 Scene",
 				"icon": "$(folder-opened)"
+			},
+			{
+				"command": "weaver.newShader",
+				"title": "Weaver: New Shader",
+				"icon": "$(symbol-color)"
 			}
 		],
 		"keybindings": [

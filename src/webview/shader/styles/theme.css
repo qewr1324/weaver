@@ -1,0 +1,32 @@
+/* src/webview/shader/styles/theme.css */
+:root {
+    color-scheme: dark;
+
+    --sh-bg: var(--vscode-editor-background, #0d1117);
+    --sh-bg-elevated: var(--vscode-sideBar-background, #161b22);
+    --sh-fg: var(--vscode-foreground, #c9d1d9);
+    --sh-fg-muted: var(--vscode-descriptionForeground, #6e7681);
+    --sh-fg-bright: var(--vscode-editor-foreground, #ffffff);
+
+    --sh-border: var(--vscode-panel-border, #30363d);
+    --sh-border-soft: var(--vscode-widget-border, #21262d);
+
+    --sh-accent: var(--vscode-focusBorder, #a78bfa);
+    --sh-accent-bg: var(--vscode-button-background, #6b46c1);
+    --sh-accent-fg: var(--vscode-button-foreground, #ffffff);
+    --sh-accent-hover: var(--vscode-button-hoverBackground, #7c5acf);
+
+    --sh-input-bg: var(--vscode-input-background, #161b22);
+    --sh-input-fg: var(--vscode-input-foreground, #c9d1d9);
+    --sh-input-border: var(--vscode-input-border, transparent);
+
+    --sh-badge-bg: var(--vscode-badge-background, #6b46c1);
+    --sh-badge-fg: var(--vscode-badge-foreground, #ffffff);
+
+    --sh-warn: var(--vscode-editorWarning-foreground, #ffa500);
+    --sh-ok: var(--vscode-testing-iconPassed, #3fb950);
+    --sh-error: var(--vscode-errorForeground, #f85149);
+
+    --sh-radius: 4px;
+    --sh-radius-sm: 2px;
+}

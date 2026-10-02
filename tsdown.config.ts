@@ -27,6 +27,12 @@ const WEBVIEW_TARGETS: WebviewTarget[] = [
 		styleEntry: "src/webview/viewport/styles/index.css",
 		htmlFile: "src/webview/viewport/index.html",
 	},
+	{
+		name: "shader",
+		scriptEntry: "src/webview/shader/scripts/main.ts",
+		styleEntry: "src/webview/shader/styles/index.css",
+		htmlFile: "src/webview/shader/index.html",
+	},
 ];
 
 async function buildWebview(t: WebviewTarget): Promise<void> {

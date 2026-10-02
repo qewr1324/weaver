@@ -1,0 +1,165 @@
+🔹 دسته‌بندی ورودی‌های شیدر
+1️⃣ Attributes (per-vertex — از VBO میان)
+
+این‌ها برای هر رأس جداگانه پاس داده می‌شن:
+ورودی	اسم رایج	توضیح
+a_position	Position	مختصات رأس (vec3)
+a_normal	Normal	نرمال رأس (vec3)
+a_tangent	Tangent	تانژانت برای Normal Map (vec4 — شامل handedness)
+a_bitangent	Bitangent	معمولاً توی شیدر از cross محاسبه می‌شه
+a_texCoord0	UV	مختصات بافت (vec2)
+a_color	Vertex Color	رنگ per-vertex (vec4)
+a_joints / a_weights	Skin	برای انیمیشن اسکلتی
+a_instanceData	Instancing	برای Instanced Rendering
+2️⃣ Uniforms (per-draw — ثابت برای کل mesh)
+🎨 متریال (PBR Maps)
+
+اینا Texture هستن، نه attribute:
+ورودی	اسم رایج	نوع
+Base Color	u_albedoMap / u_baseColorMap	sampler2D
+Normal Map	u_normalMap	sampler2D
+Roughness	u_roughnessMap	sampler2D (کانال G معمولاً)
+Metallic	u_metallicMap	sampler2D (کانال B)
+AO	u_aoMap	sampler2D (کانال R)
+Specular	u_specularMap	sampler2D (برای مدل غیر-PBR)
+Emissive	u_emissiveMap	sampler2D
+Height/Displacement	u_heightMap	sampler2D
+Opacity	u_opacityMap	sampler2D
+
+    💡 نکته مهم: توی PBR Metallic-Roughness (استاندارد glTF)، معمولاً یه Texture ترکیبی داری:
+
+        R = Occlusion
+
+        G = Roughness
+
+        B = Metallic
+
+        A = (اختیاری)
+
+🔢 Scalar Factors (ضریب‌ها)
+ورودی	نوع
+u_baseColorFactor	vec4
+u_roughnessFactor	float
+u_metallicFactor	float
+u_specularFactor	float
+u_emissiveFactor	vec3
+u_normalScale	float
+u_alphaCutoff	float
+📐 ماتریس‌ها (Transforms)
+ورودی	نوع
+u_modelMatrix	mat4
+u_viewMatrix	mat4
+u_projectionMatrix	mat4
+u_modelViewMatrix	mat4
+u_normalMatrix	mat3 (inverse-transpose)
+u_mvpMatrix	mat4
+💡 نورپردازی
+ورودی	نوع
+u_lightDirection	vec3
+u_lightColor	vec3
+u_lightIntensity	float
+u_ambientColor	vec3
+u_cameraPosition	vec3
+u_lightPositions[]	vec3[]
+🌍 محیط (IBL)
+ورودی	نوع
+u_irradianceMap	samplerCube
+u_prefilteredMap	samplerCube
+u_brdfLUT	sampler2D
+u_maxReflectionLOD	float
+3️⃣ Varyings (ارتباط Vertex → Fragment)
+ورودی	نوع
+v_worldPosition	vec3
+v_normal	vec3
+v_tangent	vec3
+v_bitangent	vec3
+v_texCoord	vec2
+v_viewDir	vec3
+v_lightDir	vec3
+🔸 جدول خلاصه بر اساس موتورها
+مفهوم	libGDX (GLSL)	Babylon.js	MonoGame (HLSL)
+Base Color	u_diffuseColor	vDiffuseColor / diffuseTexture	DiffuseColor
+Normal Map	u_normalTexture	normalTexture	NormalMap
+Roughness	u_roughness	roughness	Roughness
+Metallic	u_metallic	metallic	Metallic
+Specular	u_specularColor	specularColor	SpecularColor
+Vertex Position	a_position	position	SV_Position
+Normal	a_normal	normal	Normal
+UV	a_texCoord0	uv	TexCoord
+🔸 نمونه اسکلت شیدر (GLSL ES 3.0 — قابل تبدیل به بقیه)
+
+Vertex Shader:
+glsl
+
+in vec3 a_position;
+in vec3 a_normal;
+in vec4 a_tangent;
+in vec2 a_texCoord0;
+
+uniform mat4 u_model;
+uniform mat4 u_viewProj;
+uniform mat3 u_normalMatrix;
+
+out vec3 v_worldPos;
+out vec3 v_normal;
+out vec4 v_tangent;
+out vec2 v_uv;
+
+void main() {
+    vec4 worldPos = u_model * vec4(a_position, 1.0);
+    v_worldPos = worldPos.xyz;
+    v_normal   = u_normalMatrix * a_normal;
+    v_tangent  = vec4(u_normalMatrix * a_tangent.xyz, a_tangent.w);
+    v_uv       = a_texCoord0;
+    gl_Position = u_viewProj * worldPos;
+}
+
+Fragment Shader:
+glsl
+
+in vec3 v_worldPos;
+in vec3 v_normal;
+in vec4 v_tangent;
+in vec2 v_uv;
+
+uniform sampler2D u_baseColorMap;
+uniform sampler2D u_normalMap;
+uniform sampler2D u_metallicRoughnessMap;
+uniform sampler2D u_aoMap;
+uniform sampler2D u_emissiveMap;
+
+uniform vec4  u_baseColorFactor;
+uniform float u_roughnessFactor;
+uniform float u_metallicFactor;
+uniform vec3  u_emissiveFactor;
+uniform vec3  u_cameraPosition;
+uniform vec3  u_lightDir;
+uniform vec3  u_lightColor;
+
+out vec4 fragColor;
+
+// ... توابع PBR (GGX, Fresnel, etc.)
+
+void main() {
+    vec4 baseColor  = texture(u_baseColorMap, v_uv) * u_baseColorFactor;
+    vec3 mrSample   = texture(u_metallicRoughnessMap, v_uv).rgb;
+    float roughness = mrSample.g * u_roughnessFactor;
+    float metallic  = mrSample.b * u_metallicFactor;
+    float ao        = texture(u_aoMap, v_uv).r;
+    vec3 emissive   = texture(u_emissiveMap, v_uv).rgb * u_emissiveFactor;
+
+    // Normal map -> world space با TBN
+    vec3 N = texture(u_normalMap, v_uv).rgb * 2.0 - 1.0;
+    // ... TBN transform
+
+    // ... PBR lighting
+    vec3 color = /* PBR result */ + emissive;
+
+    fragColor = vec4(color, baseColor.a);
+}
+
+🔸 برای خروجی گرفتن توی هر موتور
+موتور	نکته
+libGDX	از ShaderProgram استفاده کن، GLSL ES 1.0/2.0 (WebGL1) یا 3.0 (GL30)
+Babylon.js	ShaderMaterial با GLSL، یا NodeMaterial (بدون کد)
+MonoGame	HLSL (.fx)، کامپایل با MGFX — اسم‌گذاری SV_Position، TEXCOORD0 و...

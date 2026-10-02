@@ -1,0 +1,46 @@
+/* src/webview/shader/styles/base.css */
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: var(--sh-bg);
+    color: var(--sh-fg);
+    font-family: var(--vscode-font-family, ui-monospace, monospace);
+    font-size: var(--vscode-font-size, 13px);
+    line-height: 1.4;
+    height: 100%;
+    overflow: hidden;
+}
+
+#root {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.empty {
+    padding: 24px;
+    color: var(--sh-fg-muted);
+    text-align: center;
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--vscode-scrollbarSlider-background, #30363d);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--vscode-scrollbarSlider-hoverBackground, #484f58);
+}

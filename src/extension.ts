@@ -7,6 +7,7 @@ import { EditorContext } from "./editor/editor-context";
 import { HierarchyProvider } from "./providers/hierarchy-provider";
 import { InspectorProvider } from "./providers/inspector-provider";
 import { WeaverViewportProvider } from "./providers/viewport-provider";
+import { WeaverShaderProvider } from "./providers/shader-provider";
 
 export function activate(context: vscode.ExtensionContext): void {
 	log.info("Weaver activating...");
@@ -24,6 +25,14 @@ export function activate(context: vscode.ExtensionContext): void {
 	const viewportProvider = new WeaverViewportProvider(context, editor);
 	context.subscriptions.push(
 		vscode.window.registerCustomEditorProvider("weaver.viewport", viewportProvider, {
+			webviewOptions: { retainContextWhenHidden: true },
+		}),
+	);
+
+	// ─── Shader Editor ───
+	const shaderProvider = new WeaverShaderProvider(context);
+	context.subscriptions.push(
+		vscode.window.registerCustomEditorProvider("weaver.shader", shaderProvider, {
 			webviewOptions: { retainContextWhenHidden: true },
 		}),
 	);
@@ -46,7 +55,10 @@ export function activate(context: vscode.ExtensionContext): void {
 	editor.bus.on("scene:loaded", () => hierarchy.refresh());
 
 	// ─── Commands ───
-	context.subscriptions.push(...registerCommands(context, editor, viewportProvider));
+	context.subscriptions.push(
+		...registerCommands(context, editor, viewportProvider),
+		vscode.commands.registerCommand("weaver.newShader", () => WeaverShaderProvider.createNewShader(context)),
+	);
 
 	log.info("Weaver activated ✓");
 }
