@@ -887,7 +887,7 @@
     // ─── Gizmo → Scene sync ───
     function setupGizmoSync() {
       const postTransform = (mesh) => {
-        if (suppressGizmoSync) return;   // ← اضافه کن
+        if (suppressGizmoSync) return;
         const nodeId = meshToNodeId.get(mesh);
         if (!nodeId) return;
         const q = mesh.rotationQuaternion || BABYLON.Quaternion.FromEulerVector(mesh.rotation);
@@ -899,13 +899,31 @@
             rotation: { x: q.x, y: q.y, z: q.z, w: q.w },
             scale: { x: mesh.scaling.x, y: mesh.scaling.y, z: mesh.scaling.z },
           },
+          live: true,   // ⭐ live
         });
       };
 
       const attach = (gizmoName) => {
         const gizmo = gizmoManager.gizmos[gizmoName];
         if (!gizmo) return;
+
+        // ─── ⭐ live: هر فریم موقع drag ───
+        let dragThrottle = null;
+        gizmo.onDragObservable.add(() => {
+          if (dragThrottle) return;
+          dragThrottle = setTimeout(() => {
+            dragThrottle = null;
+            const mesh = gizmoManager.attachedMesh;
+            if (mesh) postTransform(mesh);
+          }, 16);
+        });
+
+        // ─── پایان drag: flush فوری ───
         gizmo.onDragEndObservable.add(() => {
+          if (dragThrottle) {
+            clearTimeout(dragThrottle);
+            dragThrottle = null;
+          }
           const mesh = gizmoManager.attachedMesh;
           if (mesh) postTransform(mesh);
         });

@@ -137,6 +137,30 @@
             text-align: center;
             font-size: 11px;
         }
+
+        /* ─── نشانگر live ─── */
+        .live-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #22c55e;
+            margin-left: 4px;
+            box-shadow: 0 0 4px #22c55e88;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
     </style>
 </head>
 
@@ -147,6 +171,7 @@
     <script nonce="{{nonce}}">
         const vscode = acquireVsCodeApi();
         const root = document.getElementById('root');
+
         let current = null;
         let isMulti = false;
         let count = 0;
@@ -158,10 +183,56 @@
             { key: 'scale', label: 'Scale' },
         ];
 
-        // ─── مقادیر دقیق رو بدون گرد کردن نشون بده ───
+        // ─── state برای جلوگیری از حلقه ───
+        let focusedField = null;
+        let isUserEditing = false;
+
+        // ─── throttle برای پیام‌های زنده ───
+        const pendingMessages = new Map();
+        let flushTimer = null;
+        const THROTTLE_MS = 16; // ~60fps
+
+        function scheduleTransformUpdate(nodeId, channel, axis, value) {
+            const key = `${nodeId}:${channel}:${axis}`;
+            pendingMessages.set(key, { nodeId, channel, axis, value });
+
+            if (flushTimer) return;
+            flushTimer = setTimeout(() => {
+                flushTimer = null;
+                for (const msg of pendingMessages.values()) {
+                    vscode.postMessage({
+                        type: 'update:transform',
+                        nodeId: msg.nodeId,
+                        channel: msg.channel,
+                        axis: msg.axis,
+                        value: msg.value,
+                        live: true,
+                    });
+                }
+                pendingMessages.clear();
+            }, THROTTLE_MS);
+        }
+
+        function flushPendingNow() {
+            if (flushTimer) {
+                clearTimeout(flushTimer);
+                flushTimer = null;
+            }
+            for (const msg of pendingMessages.values()) {
+                vscode.postMessage({
+                    type: 'update:transform',
+                    nodeId: msg.nodeId,
+                    channel: msg.channel,
+                    axis: msg.axis,
+                    value: msg.value,
+                    live: true,
+                });
+            }
+            pendingMessages.clear();
+        }
+
         function formatNum(v) {
             if (typeof v !== 'number' || !Number.isFinite(v)) return '0';
-            // 6 رقم اعشار حداکثر، صفرهای اضافی حذف
             const s = v.toFixed(6).replace(/\.?0+$/, '');
             return s === '' || s === '-' ? '0' : s;
         }
@@ -174,7 +245,7 @@
 
         function renderTransform() {
             let html = '<div class="comp">';
-            html += '<div class="comp-head">Transform</div>';
+            html += '<div class="comp-head">Transform <span class="live-dot" title="Live sync"></span></div>';
             html += '<div class="comp-body">';
             for (const ch of CHANNELS) {
                 for (const ax of AXES) {
@@ -212,10 +283,7 @@
             return html;
         }
 
-        // ─── شناسه‌ی inputهایی که کاربر داره توشون تایپ می‌کنه ───
-        let focusedField = null;
-
-        function render() {
+        function render(preserveFocus = true) {
             if (!current) {
                 root.innerHTML = '<div class="empty">No selection</div>';
                 focusedField = null;
@@ -238,45 +306,58 @@
 
             // ─── transform inputs ───
             root.querySelectorAll('input[data-ch]').forEach(inp => {
-                // اگه کاربر روی این فیلد focus داشت، دوباره focus کن
                 const fid = `${inp.dataset.ch}.${inp.dataset.ax}`;
-                if (focusedField === fid) {
+
+                if (preserveFocus && focusedField === fid) {
                     inp.focus();
-                    // cursor رو آخر بذار
                     const len = inp.value.length;
                     inp.setSelectionRange(len, len);
                 }
 
                 inp.addEventListener('focus', () => {
-                    focusedField = `${inp.dataset.ch}.${inp.dataset.ax}`;
+                    focusedField = fid;
                 });
                 inp.addEventListener('blur', () => {
                     focusedField = null;
+                    isUserEditing = false;
                 });
 
-                inp.addEventListener('change', () => {
+                // ─── ⭐ زنده: هر تایپ = یه پیام (با throttle) ───
+                inp.addEventListener('input', () => {
+                    isUserEditing = true;
                     const raw = inp.value.trim();
-                    if (raw === '') return;
+                    if (raw === '' || raw === '-') return;
 
                     const parsed = parseFloat(raw);
-                    // ❌ اگه NaN بود، چیزی نفرست (به جای فرستادن 0)
-                    if (!Number.isFinite(parsed)) {
-                        // مقدار قبلی رو برگردون
-                        const oldVal = current.transform[inp.dataset.ch][inp.dataset.ax];
-                        inp.value = formatNum(oldVal);
-                        return;
+                    if (!Number.isFinite(parsed)) return;
+
+                    // آپدیت state محلی تا re-render بعدی مقدار جدید رو بذاره
+                    current.transform[inp.dataset.ch][inp.dataset.ax] = parsed;
+
+                    scheduleTransformUpdate(
+                        current.id,
+                        inp.dataset.ch,
+                        inp.dataset.ax,
+                        parsed,
+                    );
+                });
+
+                // ─── Enter = flush فوری ───
+                inp.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        flushPendingNow();
+                        inp.blur();
                     }
-
-                    const oldVal = current.transform[inp.dataset.ch][inp.dataset.ax];
-                    if (Math.abs(parsed - oldVal) < 1e-9) return; // تغییر نکرده
-
-                    vscode.postMessage({
-                        type: 'update:transform',
-                        nodeId: current.id,
-                        channel: inp.dataset.ch,
-                        axis: inp.dataset.ax,
-                        value: parsed,
-                    });
+                    // Arrow up/down: مقادیر رو با گام تغییر بده
+                    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                        const step = e.shiftKey ? 1 : (e.ctrlKey || e.metaKey ? 0.01 : 0.1);
+                        const dir = e.key === 'ArrowUp' ? 1 : -1;
+                        const cur = parseFloat(inp.value) || 0;
+                        inp.value = String(+(cur + dir * step).toFixed(6));
+                        inp.dispatchEvent(new Event('input', { bubbles: true }));
+                        e.preventDefault();
+                    }
                 });
             });
 
@@ -291,40 +372,46 @@
             nameInput?.addEventListener('change', () => {
                 const v = nameInput.value.trim();
                 if (v === '' || v === current.name) return;
-                vscode.postMessage({
-                    type: 'rename',
-                    nodeId: current.id,
-                    name: v,
-                });
+                vscode.postMessage({ type: 'rename', nodeId: current.id, name: v });
             });
         }
 
+        // ─── پیام از extension ───
         window.addEventListener('message', (e) => {
             const msg = e.data;
-            if (msg.type === 'inspect') {
-                // اگه کاربر داره یه فیلد رو ویرایش می‌کنه، مقادیر اون فیلد رو دست نزن
-                const activeEl = document.activeElement;
-                const activeFieldId = activeEl && activeEl.dataset && activeEl.dataset.ch
-                    ? `${activeEl.dataset.ch}.${activeEl.dataset.ax}`
-                    : null;
+            if (msg.type !== 'inspect') return;
 
-                current = msg.payload;
-                isMulti = msg.multi || false;
-                count = msg.count || 0;
-
-                // فقط اگه چیز مهمی عوض شده، re-render کن
-                render();
-
-                // اگه کاربر داشت یه فیلد رو ویرایش می‌کرد، focus رو برگردون
-                if (activeFieldId) {
-                    const [ch, ax] = activeFieldId.split('.');
-                    const inp = root.querySelector(`input[data-ch="${ch}"][data-ax="${ax}"]`);
-                    if (inp) {
-                        inp.focus();
-                        inp.setSelectionRange(inp.value.length, inp.value.length);
+            // اگه کاربر داره تایپ می‌کنه و منبع خودشه، re-render نکن
+            if (isUserEditing && focusedField && focusedField !== '__name__') {
+                // فقط مقادیر غیرفعال (غیر از فیلد فعال) رو آپدیت کن
+                const [ch, ax] = focusedField.split('.');
+                if (current && msg.payload && current.id === msg.payload.id) {
+                    // مقادیر بقیه فیلدها رو آپدیت کن بدون re-render کامل
+                    for (const channel of CHANNELS) {
+                        for (const axis of AXES) {
+                            if (channel.key === ch && axis === ax) continue;
+                            const newVal = msg.payload.transform[channel.key][axis];
+                            const inp = root.querySelector(`input[data-ch="${channel.key}"][data-ax="${axis}"]`);
+                            if (inp && document.activeElement !== inp) {
+                                const cur = parseFloat(inp.value);
+                                if (Math.abs(cur - newVal) > 1e-9) {
+                                    inp.value = formatNum(newVal);
+                                }
+                            }
+                        }
                     }
+                    // current رو هم آپدیت کن
+                    current.transform = msg.payload.transform;
+                    current.components = msg.payload.components;
+                    current.name = msg.payload.name;
+                    return;
                 }
             }
+
+            current = msg.payload;
+            isMulti = msg.multi || false;
+            count = msg.count || 0;
+            render(true);
         });
     </script>
 </body>
