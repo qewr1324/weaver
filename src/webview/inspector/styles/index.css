@@ -1,0 +1,5 @@
+/* src/webview/inspector/styles/index.css */
+@import "./base.css";
+@import "./inputs.css";
+@import "./components.css";
+@import "./badges.css";

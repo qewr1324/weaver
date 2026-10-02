@@ -1,0 +1,21 @@
+/* src/webview/inspector/styles/base.css */
+:root {
+    color-scheme: dark;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: #0D1117;
+    color: #C9D1D9;
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+#root {
+    display: block;
+}

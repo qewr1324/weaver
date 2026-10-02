@@ -1,0 +1,65 @@
+/* src/webview/inspector/styles/badges.css */
+.empty {
+    padding: 32px 12px;
+    text-align: center;
+    color: #6E7681;
+    font-style: italic;
+    line-height: 1.8;
+}
+
+.empty kbd {
+    display: inline-block;
+    padding: 1px 6px;
+    border: 1px solid #30363D;
+    border-radius: 3px;
+    background: #161B22;
+    color: #C9D1D9;
+    font-size: 10px;
+    margin: 0 2px;
+}
+
+.multi-badge {
+    margin: 8px;
+    padding: 6px 10px;
+    background: #6B46C1;
+    color: white;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.multi-badge .list {
+    color: #E9D5FF;
+    font-size: 10px;
+    opacity: 0.85;
+    max-width: 60%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.live-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #22c55e;
+    margin-left: 4px;
+    box-shadow: 0 0 4px #22c55e88;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.4;
+    }
+}

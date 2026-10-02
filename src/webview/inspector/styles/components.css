@@ -1,0 +1,107 @@
+/* src/webview/inspector/styles/components.css */
+.name {
+    padding: 8px 10px;
+    color: #FFFFFF;
+    border-bottom: 1px solid #21262D;
+    background: #161B22;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.name input {
+    flex: 1;
+    background: transparent;
+    border: 1px solid transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    padding: 2px 4px;
+    border-radius: 3px;
+    min-width: 0;
+}
+
+.name input:focus {
+    outline: none;
+    border-color: #A78BFA;
+    background: #0D1117;
+}
+
+.name .type {
+    color: #6E7681;
+    font-weight: 400;
+    font-size: 10px;
+    padding: 2px 6px;
+    background: #0D1117;
+    border-radius: 3px;
+    border: 1px solid #21262D;
+}
+
+.comp {
+    margin: 8px;
+    border: 1px solid #21262D;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.comp-head {
+    background: #161B22;
+    padding: 5px 8px;
+    font-size: 11px;
+    color: #A78BFA;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    user-select: none;
+}
+
+.comp-head .actions {
+    display: flex;
+    gap: 4px;
+}
+
+.comp-head .mini {
+    background: transparent;
+    border: 1px solid #30363D;
+    color: #8B949E;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all .12s;
+}
+
+.comp-head .mini:hover {
+    color: #C9D1D9;
+    border-color: #6B46C1;
+    background: #6B46C1;
+}
+
+.comp-body {
+    padding: 6px 4px;
+}
+
+.search-wrap {
+    padding: 6px 8px;
+    border-bottom: 1px solid #21262D;
+    background: #0D1117;
+}
+
+.search-wrap input {
+    width: 100%;
+    background: #161B22;
+    border: 1px solid #30363D;
+    color: #C9D1D9;
+    padding: 3px 6px;
+    border-radius: 3px;
+    font: inherit;
+}
+
+.search-wrap input:focus {
+    outline: none;
+    border-color: #A78BFA;
+}

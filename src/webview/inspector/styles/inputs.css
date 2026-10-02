@@ -1,0 +1,77 @@
+/* src/webview/inspector/styles/inputs.css */
+.row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+}
+
+.row label {
+    width: 18px;
+    color: #A78BFA;
+    text-align: center;
+    font-weight: 600;
+    cursor: ew-resize;
+    user-select: none;
+    transition: color .15s;
+}
+
+.row label:hover {
+    color: #C4B5FD;
+}
+
+.row label.reset {
+    color: #6E7681;
+    font-size: 10px;
+    cursor: pointer;
+    width: 14px;
+}
+
+.row label.reset:hover {
+    color: #FFA500;
+}
+
+.row input[type="number"],
+.row input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    background: #161B22;
+    border: 1px solid #30363D;
+    color: #C9D1D9;
+    padding: 3px 6px;
+    border-radius: 3px;
+    font: inherit;
+    transition: border-color .15s, background .15s;
+}
+
+.row input:focus {
+    outline: none;
+    border-color: #A78BFA;
+    box-shadow: 0 0 0 1px #A78BFA55;
+    background: #0D1117;
+}
+
+.row input:disabled {
+    color: #6E7681;
+    cursor: default;
+    opacity: 0.85;
+}
+
+.row input[type="color"] {
+    padding: 0;
+    height: 22px;
+    border: 1px solid #30363D;
+    border-radius: 3px;
+    background: transparent;
+    cursor: pointer;
+}
+
+.row input[type="number"]::-webkit-outer-spin-button,
+.row input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.row input[type="number"] {
+    -moz-appearance: textfield;
+}
