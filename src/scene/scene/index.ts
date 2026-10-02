@@ -90,17 +90,19 @@ export class Scene extends Disposable {
 
 	replaceContents(other: Scene): void {
 		const oldChildren = [...this.root.children];
-		this.root.children.length = 0;
 		for (const old of oldChildren) {
 			old.parent = null;
 		}
+		this.root.children.length = 0;
 
 		this.name = other.name;
 		this.config = other.config;
 
-		for (const child of other.root.children) {
+		const sourceChildren = [...other.root.children];
+		for (const child of sourceChildren) {
 			const cloned = Node.fromJSON(child.toJSON());
-			this.root.addChild(cloned);
+			cloned.parent = this.root;
+			this.root.children.push(cloned);
 		}
 
 		this.bus.emit("scene:reloaded", undefined);
@@ -119,7 +121,11 @@ export class Scene extends Disposable {
 	static fromJSON(data: SceneData): Scene {
 		const scene = new Scene(data.name, data.config ?? {});
 		const root = Node.fromJSON(data.root);
-		for (const child of root.children) scene.root.addChild(child);
+		const children = [...root.children];
+		for (const child of children) {
+			child.parent = scene.root;
+			scene.root.children.push(child);
+		}
 		return scene;
 	}
 }
