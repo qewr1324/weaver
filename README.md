@@ -15,20 +15,26 @@
   <img src="./media/example-1.png" />
 
   <hr>
+  <p>...</p>
   <hr>
 
-  <p>...</p>
   <img src="./media/example-2.png" />
 
   <hr>
+  <p>...</p>
   <hr>
 
-  <p>...</p>
   <img src="./media/example-3.png" />
 
   <hr>
+  <p>...</p>
   <hr>
 
-  <p>...</p>
   <img src="./media/example-4.png" />
+
+  <hr>
+  <p>Shader Editor...</p>
+  <hr>
+
+  <img src="./media/example-5.png" />
 </div>
