@@ -1,7 +1,7 @@
 // src/webview/shader/scripts/codegen/babylon.ts
 import type { ShaderDefinition } from "../../../../scene/shader/types";
 import { CHANNEL_ORDER } from "../../../../scene/shader/defaults";
-import { getChannelUsage, colorToVec4Literal } from "./common";
+import { getChannelUsage } from "./common";
 import { generateGLSL } from "./glsl";
 
 export function generateBabylon(shader: ShaderDefinition): string {
@@ -33,7 +33,8 @@ export function generateBabylon(shader: ShaderDefinition): string {
 	lines.push(`        fragment: "${shader.name}",`);
 	lines.push(`    }, {`);
 	lines.push(`        attributes: ["position", "normal", "uv"],`);
-	lines.push(`        uniforms: ["world", "worldView", "worldViewProjection", "view", "projection", "uCameraPos", "uLightDir", "uLightColor", "uLightIntensity", ${collectUniformNames(shader)}],`);
+	lines.push(`        uniforms: ["world", "worldView", "worldViewProjection", "view", "projection", "uCameraPos", "uLightDir", "uLightColor", "uLightIntensity"${collectUniformNamesExtra(shader)}],`);
+	lines.push(`        samplers: [${collectSamplerNames(shader)}],`);
 	lines.push(`    });`);
 	lines.push(``);
 
@@ -55,7 +56,14 @@ export function generateBabylon(shader: ShaderDefinition): string {
 			lines.push(`    material.setFloat("u_${key}_intensity", ${(ch.intensity ?? 1).toFixed(4)});`);
 		}
 		if (u.usesTexture) {
-			lines.push(`    material.setInt("u_${key}_hasTexture", 0);`);
+			// ✅ اگه texture path داره، Texture بساز
+			if (ch.texture) {
+				lines.push(`    const ${toVarName(key)}Tex = new Texture("${ch.texture}", scene);`);
+				lines.push(`    material.setTexture("u_${key}_texture", ${toVarName(key)}Tex);`);
+				lines.push(`    material.setInt("u_${key}_hasTexture", 1);`);
+			} else {
+				lines.push(`    material.setInt("u_${key}_hasTexture", 0);`);
+			}
 		}
 	}
 	lines.push(``);
@@ -84,7 +92,7 @@ function toPascalCase(name: string): string {
 	return name.replace(/[^a-zA-Z0-9]+(.)/g, (_, c) => c.toUpperCase()).replace(/^(.)/, (c) => c.toUpperCase());
 }
 
-function collectUniformNames(shader: ShaderDefinition): string {
+function collectUniformNamesExtra(shader: ShaderDefinition): string {
 	const names: string[] = [];
 	for (const key of CHANNEL_ORDER) {
 		const ch = shader.channels[key];
@@ -94,6 +102,17 @@ function collectUniformNames(shader: ShaderDefinition): string {
 		if (u.usesNumber) names.push(`"u_${key}_number"`);
 		if (u.usesTexture) names.push(`"u_${key}_hasTexture"`);
 		if (u.usesIntensity) names.push(`"u_${key}_intensity"`);
+	}
+	return names.length > 0 ? ", " + names.join(", ") : "";
+}
+
+function collectSamplerNames(shader: ShaderDefinition): string {
+	const names: string[] = [];
+	for (const key of CHANNEL_ORDER) {
+		const ch = shader.channels[key];
+		if (!ch.enabled) continue;
+		const u = getChannelUsage(ch);
+		if (u.usesTexture) names.push(`"u_${key}_texture"`);
 	}
 	return names.join(", ");
 }

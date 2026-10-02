@@ -13,7 +13,7 @@ export class WeaverShaderProvider implements vscode.CustomTextEditorProvider {
 	async resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): Promise<void> {
 		panel.webview.options = {
 			enableScripts: true,
-			localResourceRoots: [this.context.extensionUri],
+			localResourceRoots: [this.context.extensionUri, vscode.Uri.joinPath(document.uri, "..")],
 		};
 		panel.webview.html = loadWebviewHtml(this.context, panel.webview, "shader");
 
@@ -41,7 +41,6 @@ export class WeaverShaderProvider implements vscode.CustomTextEditorProvider {
 			post({ type: "shader:update", payload: shader });
 		};
 
-		// ─── file changes → webview ───
 		const changeSub = vscode.workspace.onDidChangeTextDocument((e) => {
 			if (e.document.uri.toString() !== uriStr) return;
 			const parsed = ShaderSerializer.tryDeserialize(e.document.getText());
@@ -77,6 +76,12 @@ export class WeaverShaderProvider implements vscode.CustomTextEditorProvider {
 						break;
 					}
 
+					// ✅ NEW: load texture از path
+					case "texture:load": {
+						await this.handleTextureLoad(document, post, msg.requestId as string, msg.path as string);
+						break;
+					}
+
 					case "ready":
 						if (initialSent) return;
 						initialSent = true;
@@ -87,6 +92,38 @@ export class WeaverShaderProvider implements vscode.CustomTextEditorProvider {
 				log.error(`shader message handler failed for ${msg.type}:`, err);
 			}
 		});
+	}
+
+	private async handleTextureLoad(document: vscode.TextDocument, post: (msg: unknown) => void, requestId: string, path: string): Promise<void> {
+		try {
+			if (!path || path.startsWith("data:") || path.startsWith("http")) {
+				post({ type: "texture:loaded", requestId, ok: false });
+				return;
+			}
+
+			let fileUri: vscode.Uri;
+
+			if (path.startsWith("/")) {
+				fileUri = vscode.Uri.file(path);
+			} else {
+				// ✅ relative به shader file
+				const baseDir = vscode.Uri.joinPath(document.uri, "..");
+				fileUri = vscode.Uri.joinPath(baseDir, path);
+			}
+
+			const bytes = await vscode.workspace.fs.readFile(fileUri);
+
+			const ext = path.split(".").pop()?.toLowerCase() ?? "png";
+			const mime = ext === "png" ? "image/png" : ext === "jpg" || ext === "jpeg" ? "image/jpeg" : ext === "webp" ? "image/webp" : ext === "gif" ? "image/gif" : ext === "bmp" ? "image/bmp" : "image/png";
+
+			const base64 = Buffer.from(bytes).toString("base64");
+			const dataUrl = `data:${mime};base64,${base64}`;
+
+			post({ type: "texture:loaded", requestId, ok: true, dataUrl });
+		} catch (err) {
+			log.warn("texture load failed:", path, err);
+			post({ type: "texture:loaded", requestId, ok: false });
+		}
 	}
 
 	private async writeToDocument(document: vscode.TextDocument, shader: ShaderDefinition): Promise<void> {
