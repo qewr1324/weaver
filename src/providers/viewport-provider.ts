@@ -4,7 +4,7 @@ import { ensureGlobalConfig, setGlobalConfig } from "../config/loader";
 import { getDefaultSceneUri, sceneFileExists } from "../config/paths";
 import { log } from "../core/logger";
 import { AddNodeCommand, DuplicateNodeCommand, RemoveNodeCommand, SetTransformCommand, SetWholeTransformCommand, type TransformSnapshot } from "../editor/commands";
-import type { EditorContext } from "../editor/editor-context";
+import type { EditorContext, TransformSyncPayload } from "../editor/editor-context";
 import { SceneDocument } from "../editor/scene-document";
 import { type Component, nextComponentId } from "../scene/components";
 import { SceneFactory } from "../scene/factory";
@@ -14,15 +14,14 @@ import { loadWebviewHtml } from "./html-loader";
 
 export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 	private docs = new Map<string, SceneDocument>();
+	/** webviewهای فعال per-uri */
+	private panels = new Map<string, vscode.WebviewPanel>();
 
 	constructor(
 		private readonly context: vscode.ExtensionContext,
 		private readonly editor: EditorContext,
 	) {}
 
-	// ─────────────────────────────────────────────
-	// Custom Editor entry point
-	// ─────────────────────────────────────────────
 	async resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): Promise<void> {
 		panel.webview.options = {
 			enableScripts: true,
@@ -39,8 +38,8 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 
 		const doc = new SceneDocument(document.uri, initialScene.scene);
 		this.docs.set(document.uri.toString(), doc);
+		this.panels.set(document.uri.toString(), panel);
 
-		// ─── به EditorContext وصل شو (جای loadScene) ───
 		this.editor.attachDocument(doc);
 
 		const post = (msg: unknown) => {
@@ -53,20 +52,16 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 
 		const sendScene = () => {
 			const resolved = doc.scene.resolvedConfig();
-			if (!resolved) {
-				log.warn("global config not ready");
-				return;
-			}
+			if (!resolved) return;
 			post({
 				type: "scene:update",
 				payload: { ...doc.scene.toJSON(), config: resolved },
 			});
 		};
 
-		// ─── sub: فایل تغییر کرد → scene رو دوباره load کن ───
+		// ─── sub: فایل تغییر کرد ───
 		const changeSub = vscode.workspace.onDidChangeTextDocument((e) => {
 			if (e.document.uri.toString() !== document.uri.toString()) return;
-			// echo نوشته‌های خودمون ignore می‌شه (داخل applyFromText)
 			doc.applyFromText(e.document.getText());
 			sendScene();
 		});
@@ -76,17 +71,34 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 			post({ type: "selection:update", ids });
 		});
 
-		// ─── sub: scene:changed → فقط webview رو آپدیت کن ───
-		// (flush به فایل توسط خود SceneDocument انجام می‌شه)
+		// ─── sub: scene changed → webview ───
 		const changedSub = doc.bus.on("changed", () => {
 			sendScene();
+		});
+
+		// ─── ⭐ پل مستقیم: transform:changed → viewport ───
+		const transformSyncSub = this.editor.bus.on("transform:changed", (payload: TransformSyncPayload) => {
+			// اگه از viewport خودمون اومده، echo نکن
+			if (payload.source === "viewport") return;
+			// فقط اگه همون uri فعاله
+			if (this.editor.document?.uri.toString() !== document.uri.toString()) return;
+			post({ type: "transform:apply", payload });
+		});
+
+		// ─── rename sync ───
+		const renameSyncSub = this.editor.bus.on("rename:changed", (payload) => {
+			if (this.editor.document?.uri.toString() !== document.uri.toString()) return;
+			post({ type: "rename:apply", payload });
 		});
 
 		panel.onDidDispose(() => {
 			changeSub.dispose();
 			selSub();
 			changedSub();
+			transformSyncSub();
+			renameSyncSub();
 			this.docs.delete(document.uri.toString());
+			this.panels.delete(document.uri.toString());
 			this.editor.detachDocument(document.uri.toString());
 			doc.dispose();
 		});
@@ -123,7 +135,6 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 					case "ready":
 						if (initialSent) return;
 						initialSent = true;
-
 						if (!doc.scene.resolvedConfig()) {
 							const cfg = await ensureGlobalConfig(this.context);
 							setGlobalConfig(cfg);
@@ -137,9 +148,6 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		});
 	}
 
-	// ─────────────────────────────────────────────
-	// Default scene: open-or-create level-1.weave.json
-	// ─────────────────────────────────────────────
 	async openDefaultScene(): Promise<void> {
 		let uri: vscode.Uri;
 		try {
@@ -159,13 +167,9 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		await vscode.commands.executeCommand("vscode.openWith", uri, "weaver.viewport");
 	}
 
-	// ─────────────────────────────────────────────
-	// Save active scene
-	// ─────────────────────────────────────────────
 	async saveActiveScene(): Promise<{ ok: boolean; reason?: string }> {
 		const activeTab = vscode.window.tabGroups.activeTabGroup?.activeTab;
 		if (!activeTab) {
-			// fallback: اگه هیچ تبی نیست ولی یه doc باز داریم، همون رو save کن
 			const first = this.docs.values().next().value as SceneDocument | undefined;
 			if (first) {
 				await first.flushToDocument(true);
@@ -175,12 +179,8 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		}
 
 		let uri: vscode.Uri | undefined;
-		if (activeTab.input instanceof vscode.TabInputCustom) {
-			uri = activeTab.input.uri;
-		} else if (activeTab.input instanceof vscode.TabInputText) {
-			uri = activeTab.input.uri;
-		}
-
+		if (activeTab.input instanceof vscode.TabInputCustom) uri = activeTab.input.uri;
+		else if (activeTab.input instanceof vscode.TabInputText) uri = activeTab.input.uri;
 		if (!uri) return { ok: false, reason: "active tab is not a file" };
 
 		const doc = this.docs.get(uri.toString());
@@ -190,23 +190,17 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		return { ok: true };
 	}
 
-	// ─────────────────────────────────────────────
-	// Handlers
-	// ─────────────────────────────────────────────
 	private async handleAddNode(doc: SceneDocument, data: any): Promise<void> {
 		const newNode = new Node(data.name);
-
 		if (data.transform) {
 			newNode.transform.position = { ...data.transform.position };
 			newNode.transform.rotation = { ...data.transform.rotation };
 			newNode.transform.scale = { ...data.transform.scale };
 		}
-
 		for (const c of data.components ?? []) {
 			const { id: _ignore, ...rest } = c;
 			newNode.addComponent({ id: nextComponentId(), ...rest } as Component);
 		}
-
 		await doc.commands.execute(new AddNodeCommand(doc.scene, newNode));
 		this.editor.selection.set([newNode.id]);
 	}
@@ -221,10 +215,7 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 	private async handleDuplicateNode(doc: SceneDocument, nodeId: string): Promise<void> {
 		const node = doc.scene.findNode(nodeId);
 		if (!node) return;
-
-		const cmd = new DuplicateNodeCommand(doc.scene, node, (src) => src.clone());
-		await doc.commands.execute(cmd);
-
+		await doc.commands.execute(new DuplicateNodeCommand(doc.scene, node, (s) => s.clone()));
 		const parent = node.parent;
 		if (parent) {
 			const last = parent.children[parent.children.length - 1];
@@ -235,13 +226,22 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 	private async handleWholeTransform(doc: SceneDocument, nodeId: string, transform: TransformSnapshot): Promise<void> {
 		const node = doc.scene.findNode(nodeId);
 		if (!node) return;
-		await doc.commands.execute(new SetWholeTransformCommand(node, transform));
+		await doc.commands.execute(
+			new SetWholeTransformCommand(node, transform, (n) => {
+				// ─── خبر بده به inspector که از viewport اومده ───
+				this.editor.notifyTransformChanged(n, "viewport");
+			}),
+		);
 	}
 
 	private async handleAxisTransform(doc: SceneDocument, nodeId: string, channel: string, axis: string, value: number): Promise<void> {
 		const node = doc.scene.findNode(nodeId);
 		if (!node || typeof value !== "number") return;
-		await doc.commands.execute(new SetTransformCommand(node, channel as any, axis as any, value));
+		await doc.commands.execute(
+			new SetTransformCommand(node, channel as any, axis as any, value, (n) => {
+				this.editor.notifyTransformChanged(n, "viewport");
+			}),
+		);
 	}
 
 	private errorHtml(message: string): string {

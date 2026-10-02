@@ -3,9 +3,22 @@ import { Disposable } from "../../core/disposable";
 import { EventBus } from "../../core/event-bus";
 import { Logger } from "../../core/logger";
 import { Scene } from "../../scene/scene";
+import type { Node } from "../../scene/node";
 import { CommandStack } from "../command-stack";
 import type { SceneDocument } from "../scene-document";
 import { Selection } from "../selection";
+
+/** snapshot ترنسفورم برای sync بین inspector و viewport */
+export interface TransformSyncPayload {
+	nodeId: string;
+	transform: {
+		position: { x: number; y: number; z: number };
+		rotation: { x: number; y: number; z: number; w: number };
+		scale: { x: number; y: number; z: number };
+	};
+	/** منبع تغییر — تا viewport از echo خودش صرف‌نظر کنه */
+	source: "viewport" | "inspector" | "command" | "file";
+}
 
 export class EditorContext extends Disposable {
 	private _document: SceneDocument | null = null;
@@ -19,6 +32,9 @@ export class EditorContext extends Disposable {
 		"scene:loaded": Scene;
 		"scene:mutated": void;
 		"dirty:changed": boolean;
+		// ─── پل بین inspector و viewport ───
+		"transform:changed": TransformSyncPayload;
+		"rename:changed": { nodeId: string; name: string };
 	}>();
 
 	constructor() {
@@ -27,24 +43,20 @@ export class EditorContext extends Disposable {
 		this.register(this._fallbackCommands);
 		this.register(this.selection);
 
-		// fallback: وقتی document نداریم، fallbackScene منبع حقیقته
 		this._fallbackScene.bus.on("scene:changed", () => {
-			if (this._document) return; // اگه document داریم، اون مدیریت می‌کنه
+			if (this._document) return;
 			this.bus.emit("scene:mutated", undefined);
 		});
 	}
 
-	/** scene فعال — از document اگه موجوده، وگرنه fallback */
 	get scene(): Scene {
 		return this._document?.scene ?? this._fallbackScene;
 	}
 
-	/** command stack فعال — از document اگه موجوده، وگرنه fallback */
 	get commands(): CommandStack {
 		return this._document?.commands ?? this._fallbackCommands;
 	}
 
-	/** document فعال (اگه هست) */
 	get document(): SceneDocument | null {
 		return this._document;
 	}
@@ -53,17 +65,10 @@ export class EditorContext extends Disposable {
 		return this._document?.dirty ?? false;
 	}
 
-	/**
-	 * یه SceneDocument رو attach کن.
-	 * scene قبلی fallback می‌شه (ولی dispose نمی‌شه چون fallbackCommands مال خودشه).
-	 */
 	attachDocument(doc: SceneDocument): void {
 		if (this._document === doc) return;
-
-		// اگه قبلاً document داشتیم، dirty:changed قدیمی رو unsubscribe کن
 		this._document = doc;
 
-		// dirty از document به editor منتقل شه
 		doc.bus.on("dirty:changed", (v) => {
 			if (this._document !== doc) return;
 			this.bus.emit("dirty:changed", v);
@@ -78,14 +83,9 @@ export class EditorContext extends Disposable {
 		this.bus.emit("scene:loaded", doc.scene);
 	}
 
-	/**
-	 * document فعال رو جدا کن (مثلاً وقتی تب بسته می‌شه).
-	 * @param uri اگه بدی، فقط اگه همون uri بود جدا می‌کنه.
-	 */
 	detachDocument(uri?: string): void {
 		if (!this._document) return;
 		if (uri && this._document.uri.toString() !== uri) return;
-
 		this._document = null;
 		this.selection.clear();
 		this.markDirty(false);
@@ -97,12 +97,27 @@ export class EditorContext extends Disposable {
 	}
 
 	/**
-	 * سازگاری با کدهای قدیمی — یه Scene جدید رو جایگزین fallback می‌کنه.
-	 * (وقتی document وجود نداره)
+	 * helper: از هر جایی که transform رو عوض کردی، این رو صدا بزن
+	 * تا inspector و viewport هم‌زمان sync شن.
 	 */
+	notifyTransformChanged(node: Node, source: TransformSyncPayload["source"]): void {
+		this.bus.emit("transform:changed", {
+			nodeId: node.id,
+			transform: {
+				position: { ...node.transform.position },
+				rotation: { ...node.transform.rotation },
+				scale: { ...node.transform.scale },
+			},
+			source,
+		});
+	}
+
+	notifyRenamed(node: Node): void {
+		this.bus.emit("rename:changed", { nodeId: node.id, name: node.name });
+	}
+
 	loadScene(scene: Scene): void {
 		if (this._document) {
-			// اگه document داریم، scene رو داخلش replace کن
 			this._document.scene.replaceContents(scene);
 		} else {
 			this._fallbackScene = scene;

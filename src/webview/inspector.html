@@ -1,3 +1,4 @@
+<!-- src/webview/inspector.html -->
 <!DOCTYPE html>
 <html>
 
@@ -157,6 +158,14 @@
             { key: 'scale', label: 'Scale' },
         ];
 
+        // ─── مقادیر دقیق رو بدون گرد کردن نشون بده ───
+        function formatNum(v) {
+            if (typeof v !== 'number' || !Number.isFinite(v)) return '0';
+            // 6 رقم اعشار حداکثر، صفرهای اضافی حذف
+            const s = v.toFixed(6).replace(/\.?0+$/, '');
+            return s === '' || s === '-' ? '0' : s;
+        }
+
         function esc(s) {
             return String(s).replace(/[&<>"']/g, c => ({
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -170,10 +179,10 @@
             for (const ch of CHANNELS) {
                 for (const ax of AXES) {
                     const v = current.transform[ch.key][ax];
-                    const val = typeof v === 'number' ? v.toFixed(3) : '0.000';
+                    const val = formatNum(v);
                     html += `<div class="row">
             <label>${ax.toUpperCase()}</label>
-            <input type="number" step="0.1"
+            <input type="number" step="any"
               data-ch="${ch.key}" data-ax="${ax}"
               value="${val}" />
           </div>`;
@@ -203,9 +212,13 @@
             return html;
         }
 
+        // ─── شناسه‌ی inputهایی که کاربر داره توشون تایپ می‌کنه ───
+        let focusedField = null;
+
         function render() {
             if (!current) {
                 root.innerHTML = '<div class="empty">No selection</div>';
+                focusedField = null;
                 return;
             }
 
@@ -223,26 +236,65 @@
             html += renderComponents();
             root.innerHTML = html;
 
-            // transform inputs
+            // ─── transform inputs ───
             root.querySelectorAll('input[data-ch]').forEach(inp => {
+                // اگه کاربر روی این فیلد focus داشت، دوباره focus کن
+                const fid = `${inp.dataset.ch}.${inp.dataset.ax}`;
+                if (focusedField === fid) {
+                    inp.focus();
+                    // cursor رو آخر بذار
+                    const len = inp.value.length;
+                    inp.setSelectionRange(len, len);
+                }
+
+                inp.addEventListener('focus', () => {
+                    focusedField = `${inp.dataset.ch}.${inp.dataset.ax}`;
+                });
+                inp.addEventListener('blur', () => {
+                    focusedField = null;
+                });
+
                 inp.addEventListener('change', () => {
+                    const raw = inp.value.trim();
+                    if (raw === '') return;
+
+                    const parsed = parseFloat(raw);
+                    // ❌ اگه NaN بود، چیزی نفرست (به جای فرستادن 0)
+                    if (!Number.isFinite(parsed)) {
+                        // مقدار قبلی رو برگردون
+                        const oldVal = current.transform[inp.dataset.ch][inp.dataset.ax];
+                        inp.value = formatNum(oldVal);
+                        return;
+                    }
+
+                    const oldVal = current.transform[inp.dataset.ch][inp.dataset.ax];
+                    if (Math.abs(parsed - oldVal) < 1e-9) return; // تغییر نکرده
+
                     vscode.postMessage({
                         type: 'update:transform',
                         nodeId: current.id,
                         channel: inp.dataset.ch,
                         axis: inp.dataset.ax,
-                        value: parseFloat(inp.value) || 0,
+                        value: parsed,
                     });
                 });
             });
 
-            // rename
+            // ─── rename ───
             const nameInput = document.getElementById('nameInput');
+            nameInput?.addEventListener('focus', () => {
+                focusedField = '__name__';
+            });
+            nameInput?.addEventListener('blur', () => {
+                focusedField = null;
+            });
             nameInput?.addEventListener('change', () => {
+                const v = nameInput.value.trim();
+                if (v === '' || v === current.name) return;
                 vscode.postMessage({
                     type: 'rename',
                     nodeId: current.id,
-                    name: nameInput.value,
+                    name: v,
                 });
             });
         }
@@ -250,10 +302,28 @@
         window.addEventListener('message', (e) => {
             const msg = e.data;
             if (msg.type === 'inspect') {
+                // اگه کاربر داره یه فیلد رو ویرایش می‌کنه، مقادیر اون فیلد رو دست نزن
+                const activeEl = document.activeElement;
+                const activeFieldId = activeEl && activeEl.dataset && activeEl.dataset.ch
+                    ? `${activeEl.dataset.ch}.${activeEl.dataset.ax}`
+                    : null;
+
                 current = msg.payload;
                 isMulti = msg.multi || false;
                 count = msg.count || 0;
+
+                // فقط اگه چیز مهمی عوض شده، re-render کن
                 render();
+
+                // اگه کاربر داشت یه فیلد رو ویرایش می‌کرد، focus رو برگردون
+                if (activeFieldId) {
+                    const [ch, ax] = activeFieldId.split('.');
+                    const inp = root.querySelector(`input[data-ch="${ch}"][data-ax="${ax}"]`);
+                    if (inp) {
+                        inp.focus();
+                        inp.setSelectionRange(inp.value.length, inp.value.length);
+                    }
+                }
             }
         });
     </script>

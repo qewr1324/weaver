@@ -396,6 +396,7 @@
     const crosshair = document.getElementById('crosshair');
 
     // ═══════════ STATE ═══════════
+    let suppressGizmoSync = false;
     let engine, scene, camera, highlightLayer, gizmoManager;
     const nodeIdToMesh = new Map();
     const meshToNodeId = new WeakMap();
@@ -513,12 +514,47 @@
         }
       } else if (msg.type === 'selection:update') {
         applySelection(msg.ids || []);
+      } else if (msg.type === 'transform:apply') {
+        // ─── ⭐ از inspector اومده: mesh رو جابه‌جا کن بدون rebuild ───
+        applyTransformFromInspector(msg.payload);
+      } else if (msg.type === 'rename:apply') {
+        // rename رو توی HUD یا هر جا خواستی نشون بده (اختیاری)
+        const { nodeId, name } = msg.payload;
+        console.log('[Weaver] renamed', nodeId, '→', name);
       } else if (msg.type === 'config:resolved') {
         applySceneConfig(msg.payload);
       } else if (msg.type === 'error') {
         loading.textContent = 'Error: ' + msg.message;
       }
     });
+
+    // ─── ⭐ اعمال transform از inspector ───
+    function applyTransformFromInspector(payload) {
+      const { nodeId, transform } = payload;
+      const mesh = nodeIdToMesh.get(nodeId);
+      if (!mesh) return;
+
+      // جلوگیری از fire شدن gizmo onDragEnd
+      suppressGizmoSync = true;
+      try {
+        mesh.position.set(transform.position.x, transform.position.y, transform.position.z);
+        mesh.rotationQuaternion = new BABYLON.Quaternion(
+          transform.rotation.x,
+          transform.rotation.y,
+          transform.rotation.z,
+          transform.rotation.w,
+        );
+        mesh.scaling.set(transform.scale.x, transform.scale.y, transform.scale.z);
+
+        // اگه gizmo به این mesh وصله، موقعیتش رو آپدیت کن
+        if (gizmoManager && gizmoManager.attachedMesh === mesh) {
+          // Babylon خودش موقع drag بعدی sync می‌کنه
+        }
+      } finally {
+        // یه tick صبر کن
+        setTimeout(() => { suppressGizmoSync = false; }, 0);
+      }
+    }
 
     // ═══════════ INIT ═══════════
     window.addEventListener('load', () => {
@@ -851,6 +887,7 @@
     // ─── Gizmo → Scene sync ───
     function setupGizmoSync() {
       const postTransform = (mesh) => {
+        if (suppressGizmoSync) return;   // ← اضافه کن
         const nodeId = meshToNodeId.get(mesh);
         if (!nodeId) return;
         const q = mesh.rotationQuaternion || BABYLON.Quaternion.FromEulerVector(mesh.rotation);

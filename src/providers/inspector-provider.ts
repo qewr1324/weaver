@@ -1,6 +1,7 @@
+// src/providers/inspector-provider.ts
 import * as vscode from "vscode";
 import { RenameNodeCommand, SetTransformCommand } from "../editor/commands";
-import type { EditorContext } from "../editor/editor-context";
+import type { EditorContext, TransformSyncPayload } from "../editor/editor-context";
 import { loadWebviewHtml } from "./html-loader";
 
 export class InspectorProvider implements vscode.WebviewViewProvider {
@@ -16,7 +17,19 @@ export class InspectorProvider implements vscode.WebviewViewProvider {
 		};
 		view.webview.html = loadWebviewHtml(this.context, view.webview, "inspector.html");
 
-		const pushInspect = () => {
+		let lastPushTime = 0;
+		let pushTimer: ReturnType<typeof setTimeout> | null = null;
+
+		const pushInspect = (force = false) => {
+			const now = Date.now();
+			// throttle: حداقل 30ms بین pushها
+			if (!force && now - lastPushTime < 30) {
+				if (pushTimer) clearTimeout(pushTimer);
+				pushTimer = setTimeout(() => pushInspect(true), 30);
+				return;
+			}
+			lastPushTime = now;
+
 			const id = this.editor.selection.primary;
 			const node = id ? this.editor.scene.findNode(id) : null;
 			view.webview.postMessage({
@@ -35,27 +48,47 @@ export class InspectorProvider implements vscode.WebviewViewProvider {
 			});
 		};
 
-		const selSub = this.editor.selection.bus.on("changed", pushInspect);
-		const primarySub = this.editor.selection.bus.on("primaryChanged", pushInspect);
+		// ─── sub: selection ───
+		const selSub = this.editor.selection.bus.on("changed", () => pushInspect(true));
+		const primarySub = this.editor.selection.bus.on("primaryChanged", () => pushInspect(true));
 
-		view.onDidDispose(() => {
-			selSub();
-			primarySub();
+		// ─── sub: transform:changed → پل مستقیم از viewport ───
+		const transformSub = this.editor.bus.on("transform:changed", (payload: TransformSyncPayload) => {
+			// اگه منبع خود inspector بود، ignore کن (چون خودش می‌دونه)
+			if (payload.source === "inspector") return;
+			pushInspect(true);
 		});
 
-		view.webview.onDidReceiveMessage(async (msg) => {
+		// ─── sub: rename:changed ───
+		const renameSub = this.editor.bus.on("rename:changed", () => pushInspect(true));
+
+		// ─── sub: scene:loaded ───
+		const sceneSub = this.editor.bus.on("scene:loaded", () => pushInspect(true));
+
+		// ─── sub: پیام‌ها از webview ───
+		const msgSub = view.webview.onDidReceiveMessage(async (msg) => {
 			switch (msg.type) {
 				case "update:transform": {
 					const node = this.editor.scene.findNode(msg.nodeId);
 					if (!node) return;
-					await this.editor.commands.execute(new SetTransformCommand(node, msg.channel, msg.axis, msg.value));
+					if (typeof msg.value !== "number" || !Number.isFinite(msg.value)) return;
+					await this.editor.commands.execute(
+						new SetTransformCommand(node, msg.channel, msg.axis, msg.value, (n) => {
+							// ─── خبر بده به viewport که از inspector اومده ───
+							this.editor.notifyTransformChanged(n, "inspector");
+						}),
+					);
 					break;
 				}
 
 				case "rename": {
 					const node = this.editor.scene.findNode(msg.nodeId);
 					if (!node) return;
-					await this.editor.commands.execute(new RenameNodeCommand(node, msg.name));
+					await this.editor.commands.execute(
+						new RenameNodeCommand(node, msg.name, (n) => {
+							this.editor.notifyRenamed(n);
+						}),
+					);
 					break;
 				}
 
@@ -64,12 +97,22 @@ export class InspectorProvider implements vscode.WebviewViewProvider {
 					if (!node) return;
 					node.enabled = !node.enabled;
 					this.editor.bus.emit("scene:mutated", undefined);
+					pushInspect(true);
 					break;
 				}
 			}
 		});
 
-		// push اولیه
-		pushInspect();
+		view.onDidDispose(() => {
+			selSub();
+			primarySub();
+			transformSub();
+			renameSub();
+			sceneSub();
+			msgSub.dispose();
+			if (pushTimer) clearTimeout(pushTimer);
+		});
+
+		pushInspect(true);
 	}
 }
