@@ -6,7 +6,7 @@ import { setReferenceMode } from "./toolbar";
 import { setShaderMode } from "./toolbar";
 import { toggleSnapGrid, toggleSnapObject } from "./snap";
 import { makeButton, clearGroup } from "./toolbar/buttons";
-import { installGridControls } from "./grid-controls"; // ✨ جدید
+import { installGridControls } from "./grid-controls";
 
 export interface ViewportConfig {
 	toolbar: {
@@ -43,6 +43,7 @@ export interface ViewportConfig {
 
 let config: ViewportConfig | null = null;
 let configAppliedOnce = false;
+let lastToolbarHash = "";
 
 export function getConfig(): ViewportConfig | null {
 	return config;
@@ -102,8 +103,6 @@ export function applySceneConfig(raw: any): void {
 	camState.sprintMult = config.camera.sprintMult;
 	camState.slowMult = config.camera.slowMult;
 
-	// ⭐ مهم: فقط بار اول editor modeها رو از config ست کن
-	//    بعد از اون، کاربر ممکنه وسط کار عوض کرده باشه، پس overwrite نکن
 	if (!configAppliedOnce) {
 		editor.transformMode = config.toolbar.transformMode || "move";
 		editor.referenceMode = config.toolbar.referenceMode || "world";
@@ -121,7 +120,15 @@ export function applySceneConfig(raw: any): void {
 		if (gizmoManager.gizmos.scaleGizmo) gizmoManager.gizmos.scaleGizmo.scaleRatio = ratio;
 	}
 
-	buildToolbar();
+	// ✅ toolbar رو فقط اگه config عوض شده rebuild کن
+	const toolbarHash = JSON.stringify(config.toolbar);
+	if (toolbarHash !== lastToolbarHash) {
+		lastToolbarHash = toolbarHash;
+		buildToolbar();
+	} else {
+		// فقط grid controls رو دوباره نصب کن (چون clearGroup ممکنه پاکش کرده باشه)
+		installGridControls();
+	}
 }
 
 export function buildToolbar(): void {
@@ -203,7 +210,5 @@ export function buildToolbar(): void {
 		dom.snapGroup.style.display = "none";
 	}
 
-	// ✨ جدید — بعد از ساخت دکمه‌های snap، grid controls رو نصب کن
-	// (چون clearGroup قبلی ممکنه اون‌ها رو پاک کرده باشه)
 	installGridControls();
 }

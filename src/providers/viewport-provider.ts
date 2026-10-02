@@ -3,8 +3,8 @@ import * as vscode from "vscode";
 import { ensureGlobalConfig, setGlobalConfig } from "../config/loader";
 import { getDefaultSceneUri, sceneFileExists } from "../config/paths";
 import { log } from "../core/logger";
-import { AddNodeCommand, DuplicateNodeCommand, RemoveNodeCommand } from "../editor/commands";
-import type { EditorContext, TransformSnapshot } from "../editor/editor-context";
+import { AddNodeCommand, DuplicateNodeCommand, RemoveNodeCommand, SetWholeTransformCommand, type TransformSnapshot } from "../editor/commands";
+import type { EditorContext } from "../editor/editor-context";
 import { SceneDocument } from "../editor/scene-document";
 import { type Component, nextComponentId } from "../scene/components";
 import { SceneFactory } from "../scene/factory";
@@ -37,7 +37,6 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		const doc = new SceneDocument(document.uri, initialScene.scene);
 		const uriStr = document.uri.toString();
 		this.docs.set(uriStr, doc);
-
 		this.editor.attachDocument(doc);
 
 		const post = (msg: unknown) => {
@@ -57,8 +56,6 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 			});
 		};
 
-		// ⭐ اگه خودمون فایل رو می‌نویسیم، skip کن
-		//    این جلوی rebuild ناخواسته scene و reset شدن gizmo رو می‌گیره
 		const changeSub = vscode.workspace.onDidChangeTextDocument((e) => {
 			if (e.document.uri.toString() !== uriStr) return;
 			if (doc.writing) return;
@@ -74,7 +71,6 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		const onNodeRemoved = doc.scene.bus.on("node:removed", () => sendFullScene());
 		const onSceneReloaded = doc.scene.bus.on("scene:reloaded", () => sendFullScene());
 
-		// transform از scene bus — echo از viewport رو skip کن
 		const transformSub = doc.scene.bus.on("transform:changed", (payload) => {
 			if (payload.source === "viewport") return;
 			post({ type: "transform:apply", payload });
@@ -121,6 +117,22 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 					case "update:transform":
 						await this.handleTransformFromViewport(doc, msg);
 						break;
+
+					case "undo": {
+						const stack = (doc.commands as any).undoStack;
+						console.log("[VP] undo received. undoStack size:", stack?.length ?? "?");
+						await doc.commands.undo();
+						sendFullScene();
+						break;
+					}
+
+					case "redo": {
+						const stack = (doc.commands as any).redoStack;
+						console.log("[VP] redo received. redoStack size:", stack?.length ?? "?");
+						await doc.commands.redo();
+						sendFullScene();
+						break;
+					}
 
 					case "ready":
 						if (initialSent) return;
@@ -181,32 +193,87 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 	}
 
 	private async handleTransformFromViewport(doc: SceneDocument, msg: any): Promise<void> {
-		const node = doc.scene.findNode(msg.nodeId);
-		if (!node) return;
+		console.log("[VP] handleTransformFromViewport", {
+			nodeId: msg.nodeId,
+			hasTransform: !!msg.transform,
+			hasBefore: !!msg.before,
+			live: msg.live,
+			source: msg.source,
+		});
 
-		// ⭐ source رو از پیام بخون، نه hardcode
+		const node = doc.scene.findNode(msg.nodeId);
+		if (!node) {
+			console.log("[VP] node not found:", msg.nodeId);
+			return;
+		}
+
 		const source: "viewport" | "inspector" = msg.source === "inspector" ? "inspector" : "viewport";
 
-		let snapshot: TransformSnapshot;
+		// full transform (gizmo drag / transform-commit)
 		if (msg.transform) {
-			// full transform (gizmo drag از viewport)
-			snapshot = {
+			const after: TransformSnapshot = {
 				position: { ...msg.transform.position },
 				rotation: { ...msg.transform.rotation },
 				scale: { ...msg.transform.scale },
 			};
+
+			// live → فقط اعمال کن، command نساز
+			if (msg.live === true) {
+				this.editor.setNodeTransform(node, after, source, true);
+				return;
+			}
+
+			// non-live → command بساز
+			if (msg.before) {
+				const before: TransformSnapshot = {
+					position: { ...msg.before.position },
+					rotation: { ...msg.before.rotation },
+					scale: { ...msg.before.scale },
+				};
+
+				try {
+					const cmd = new SetWholeTransformCommand(node, after, (n) => this.editor.setNodeTransform(n, n.transform.toJSON(), "undo", false), before);
+					await doc.commands.execute(cmd);
+					const stack = (doc.commands as any).undoStack;
+					console.log("[VP] command executed. undoStack size:", stack?.length ?? "?");
+				} catch (err) {
+					console.log("[VP] command FAILED:", err);
+				}
+			} else {
+				console.log("[VP] no before → no command");
+				this.editor.setNodeTransform(node, after, source, false);
+			}
+			return;
+		}
+
+		// single axis (inspector input)
+		if (typeof msg.value !== "number" || !Number.isFinite(msg.value)) return;
+
+		const after: TransformSnapshot = {
+			position: { ...node.transform.position },
+			rotation: { ...node.transform.rotation },
+			scale: { ...node.transform.scale },
+		};
+		(after as any)[msg.channel][msg.axis] = msg.value;
+
+		if (msg.live === true) {
+			this.editor.setNodeTransform(node, after, source, true);
 		} else {
-			// single axis (inspector input)
-			if (typeof msg.value !== "number" || !Number.isFinite(msg.value)) return;
-			snapshot = {
+			const before: TransformSnapshot = {
 				position: { ...node.transform.position },
 				rotation: { ...node.transform.rotation },
 				scale: { ...node.transform.scale },
 			};
-			(snapshot as any)[msg.channel][msg.axis] = msg.value;
-		}
 
-		this.editor.setNodeTransform(node, snapshot, source, msg.live === true);
+			try {
+				const cmd = new SetWholeTransformCommand(node, after, (n) => this.editor.setNodeTransform(n, n.transform.toJSON(), "undo", false), before);
+				await doc.commands.execute(cmd);
+				const stack = (doc.commands as any).undoStack;
+				console.log("[VP] single-axis command executed. undoStack size:", stack?.length ?? "?");
+			} catch (err) {
+				console.log("[VP] single-axis command FAILED:", err);
+			}
+		}
 	}
 
 	private async handleAddNode(doc: SceneDocument, data: any): Promise<void> {

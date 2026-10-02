@@ -187,7 +187,7 @@ export class SetPropertyCommand<T> implements Command {
 }
 
 // ─────────────────────────────────────────────
-// SET TRANSFORM (deep path)
+// SET TRANSFORM (single axis)
 // ─────────────────────────────────────────────
 export class SetTransformCommand implements Command {
 	readonly label: string;
@@ -218,7 +218,7 @@ export class SetTransformCommand implements Command {
 }
 
 // ─────────────────────────────────────────────
-// SET WHOLE TRANSFORM (for gizmo)
+// SET WHOLE TRANSFORM
 // ─────────────────────────────────────────────
 export interface TransformSnapshot {
 	position: { x: number; y: number; z: number };
@@ -229,23 +229,48 @@ export interface TransformSnapshot {
 export class SetWholeTransformCommand implements Command {
 	readonly label: string;
 	private prev: TransformSnapshot;
+	private next: TransformSnapshot;
 	private onChanged?: (node: Node) => void;
 
 	constructor(
 		private node: Node,
-		private next: TransformSnapshot,
+		next: TransformSnapshot,
 		onChanged?: (node: Node) => void,
+		explicitBefore?: TransformSnapshot,
 	) {
-		this.prev = {
-			position: { ...node.transform.position },
-			rotation: { ...node.transform.rotation },
-			scale: { ...node.transform.scale },
+		this.next = {
+			position: { ...next.position },
+			rotation: { ...next.rotation },
+			scale: { ...next.scale },
 		};
+
+		if (explicitBefore) {
+			this.prev = {
+				position: { ...explicitBefore.position },
+				rotation: { ...explicitBefore.rotation },
+				scale: { ...explicitBefore.scale },
+			};
+		} else {
+			this.prev = {
+				position: { ...node.transform.position },
+				rotation: { ...node.transform.rotation },
+				scale: { ...node.transform.scale },
+			};
+		}
+
 		this.label = `Transform ${node.name}`;
 		this.onChanged = onChanged;
+
+		console.log("[SetWhole] constructed", {
+			node: node.name,
+			nodeId: node.id,
+			prev: this.prev.position,
+			next: this.next.position,
+		});
 	}
 
 	execute(): void {
+		console.log("[SetWhole] execute →", this.next.position);
 		this.node.transform.position = { ...this.next.position };
 		this.node.transform.rotation = { ...this.next.rotation };
 		this.node.transform.scale = { ...this.next.scale };
@@ -253,6 +278,7 @@ export class SetWholeTransformCommand implements Command {
 	}
 
 	undo(): void {
+		console.log("[SetWhole] undo →", this.prev.position);
 		this.node.transform.position = { ...this.prev.position };
 		this.node.transform.rotation = { ...this.prev.rotation };
 		this.node.transform.scale = { ...this.prev.scale };

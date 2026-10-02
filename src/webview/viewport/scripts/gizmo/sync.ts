@@ -1,10 +1,9 @@
 // src/webview/viewport/scripts/gizmo/sync.ts
-import { gizmoManager, meshToNodeId, rootToNodeId, gizmoListenersAttached, suppressGizmoSync, nodeIdToRoot, nodeIdToMesh, setSuppressGizmoSync, selectedIds, scene } from "../state";
+import { gizmoManager, gizmoListenersAttached, nodeIdToRoot, nodeIdToMesh, setSuppressGizmoSync, selectedIds } from "../state";
 import { postToExtension } from "../messaging";
 
 function readTransform(attached: any) {
 	const BABYLON = (window as any).BABYLON;
-
 	attached.computeWorldMatrix?.(true);
 
 	const pos = attached.getAbsolutePosition();
@@ -62,88 +61,11 @@ export function setupGizmoSync(): void {
 				live: true,
 			});
 		});
-
-		gizmo.onDragEndObservable.add(() => {
-			const nodeId = selectedIds[0];
-			if (!nodeId) return;
-			const transform = readTransformByNodeId(nodeId);
-			if (!transform) return;
-
-			console.log("[Weaver:sync] onDragEnd → live:false", nodeId);
-
-			postToExtension({
-				type: "update:transform",
-				nodeId,
-				transform,
-				source: "viewport",
-				live: false,
-			});
-		});
 	};
 
 	attach("positionGizmo");
 	attach("rotationGizmo");
 	attach("scaleGizmo");
-
-	setupPolling();
-}
-
-let pollingSetup = false;
-let wasDragging = false;
-let lastKey: string | null = null;
-
-function setupPolling(): void {
-	if (pollingSetup) return;
-	if (!scene) return;
-	pollingSetup = true;
-
-	console.log("[Weaver:sync] polling setup");
-
-	scene.onBeforeRenderObservable.add(() => {
-		if (!gizmoManager) return;
-		if (suppressGizmoSync) return;
-
-		const nodeId = selectedIds[0];
-		if (!nodeId) return;
-
-		const isDragging = !!(gizmoManager.gizmos.positionGizmo?.isDragging || gizmoManager.gizmos.rotationGizmo?.isDragging || gizmoManager.gizmos.scaleGizmo?.isDragging);
-
-		// drag end transition
-		if (wasDragging && !isDragging) {
-			const transform = readTransformByNodeId(nodeId);
-			if (transform) {
-				console.log("[Weaver:sync] polling drag end → live:false", nodeId);
-				postToExtension({
-					type: "update:transform",
-					nodeId,
-					transform,
-					source: "viewport",
-					live: false,
-				});
-			}
-			wasDragging = false;
-			lastKey = null;
-			return;
-		}
-
-		if (!isDragging) return;
-
-		const transform = readTransformByNodeId(nodeId);
-		if (!transform) return;
-
-		const key = nodeId + ":" + JSON.stringify(transform);
-		if (key === lastKey) return;
-		lastKey = key;
-		wasDragging = true;
-
-		postToExtension({
-			type: "update:transform",
-			nodeId,
-			transform,
-			source: "viewport",
-			live: true,
-		});
-	});
 }
 
 export function applyTransformFromInspector(payload: any): void {

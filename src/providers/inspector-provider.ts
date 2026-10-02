@@ -1,26 +1,27 @@
 // src/providers/inspector-provider.ts
 import * as vscode from "vscode";
-import { RenameNodeCommand } from "../editor/commands";
+import { RenameNodeCommand, SetWholeTransformCommand, type TransformSnapshot } from "../editor/commands";
 import type { EditorContext } from "../editor/editor-context";
 import { loadWebviewHtml } from "./html-loader";
 import { Logger } from "../core/logger";
 
 const inspLog = new Logger("Inspector");
 
-/**
- * ✨ throttle برای pushInspect.
- * چون selection/transform/mutation می‌تونن پشت سر هم fire بشن،
- * این جلوی جهش draw calls و rebuild مکرر DOM رو می‌گیره.
- */
 const PUSH_THROTTLE_MS = 100;
 
 export class InspectorProvider implements vscode.WebviewViewProvider {
 	private view: vscode.WebviewView | null = null;
 	private subs: Array<() => void> = [];
 
-	// ✨ throttle state
 	private pushTimer: ReturnType<typeof setTimeout> | null = null;
 	private pendingPush = false;
+
+	// ✨ ذخیره‌ی before برای transform undo/redo
+	private pendingBefore: TransformSnapshot | null = null;
+	private pendingNodeId: string | null = null;
+	private pendingChannel: "position" | "rotation" | "scale" | null = null;
+	private pendingAxis: "x" | "y" | "z" | "w" | null = null;
+	private commitTimer: ReturnType<typeof setTimeout> | null = null;
 
 	constructor(
 		private readonly context: vscode.ExtensionContext,
@@ -38,7 +39,6 @@ export class InspectorProvider implements vscode.WebviewViewProvider {
 		};
 		view.webview.html = loadWebviewHtml(this.context, view.webview, "inspector");
 
-		// ✨ تابع اصلی push (بدون throttle)
 		const doPush = () => {
 			if (!this.view) return;
 			const id = this.editor.selection.primary;
@@ -64,18 +64,14 @@ export class InspectorProvider implements vscode.WebviewViewProvider {
 			});
 		};
 
-		// ✨ pushInspect با throttle + coalesce
 		const pushInspect = () => {
 			if (this.pushTimer) {
-				// یه push در انتظار هست → coalesce
 				this.pendingPush = true;
 				return;
 			}
 
-			// فوراً push کن
 			doPush();
 
-			// بعدش throttle
 			this.pushTimer = setTimeout(() => {
 				this.pushTimer = null;
 				if (this.pendingPush) {
@@ -85,13 +81,49 @@ export class InspectorProvider implements vscode.WebviewViewProvider {
 			}, PUSH_THROTTLE_MS);
 		};
 
+		// ✨ commit pending transform به command stack
+		const commitPending = async () => {
+			if (this.commitTimer) {
+				clearTimeout(this.commitTimer);
+				this.commitTimer = null;
+			}
+
+			if (!this.pendingBefore || !this.pendingNodeId) return;
+
+			const node = this.editor.scene.findNode(this.pendingNodeId);
+			const before = this.pendingBefore;
+
+			this.pendingBefore = null;
+			this.pendingNodeId = null;
+			this.pendingChannel = null;
+			this.pendingAxis = null;
+
+			if (!node) return;
+
+			// after = مقدار فعلی node
+			const after: TransformSnapshot = {
+				position: { ...node.transform.position },
+				rotation: { ...node.transform.rotation },
+				scale: { ...node.transform.scale },
+			};
+
+			// ✅ حالا command بساز
+			const cmd = new SetWholeTransformCommand(
+				node,
+				after,
+				(n) => this.editor.setNodeTransform(n, n.transform.toJSON(), "undo", false),
+				before, // ✨ explicitBefore
+			);
+
+			await this.editor.commands.execute(cmd);
+			inspLog.debug("transform command committed", { nodeId: node.id });
+		};
+
 		this.subs.push(this.editor.selection.bus.on("changed", pushInspect));
 		this.subs.push(this.editor.selection.bus.on("primaryChanged", pushInspect));
 		this.subs.push(this.editor.bus.on("scene:loaded", pushInspect));
 		this.subs.push(this.editor.bus.on("scene:mutated", pushInspect));
 
-		// ⭐ به جای this.editor.scene.bus، از eventbus editor استفاده کن
-		// که مستقل از document عوض شدن کار می‌کنه
 		const attachTransformListener = () => {
 			const scene = this.editor.scene;
 			inspLog.debug("attaching transform listener to scene", scene.name);
@@ -110,7 +142,6 @@ export class InspectorProvider implements vscode.WebviewViewProvider {
 		};
 		attachTransformListener();
 
-		// هر بار scene:loaded → listener رو دوباره attach کن
 		this.subs.push(
 			this.editor.bus.on("scene:loaded", () => {
 				inspLog.debug("scene:loaded → reattach transform listener");
@@ -128,7 +159,40 @@ export class InspectorProvider implements vscode.WebviewViewProvider {
 					const node = this.editor.scene.findNode(msg.nodeId);
 					if (!node) return;
 					if (typeof msg.value !== "number" || !Number.isFinite(msg.value)) return;
-					this.editor.setNodeTransformAxis(node, msg.channel, msg.axis, msg.value, "inspector", msg.live === true);
+
+					// ✅ اگه pending نداشتیم، before رو ذخیره کن
+					if (!this.pendingBefore || this.pendingNodeId !== msg.nodeId) {
+						this.pendingBefore = {
+							position: { ...node.transform.position },
+							rotation: { ...node.transform.rotation },
+							scale: { ...node.transform.scale },
+						};
+						this.pendingNodeId = msg.nodeId;
+					}
+
+					this.pendingChannel = msg.channel;
+					this.pendingAxis = msg.axis;
+
+					// ✅ مقدار جدید رو اعمال کن
+					this.editor.setNodeTransformAxis(
+						node,
+						msg.channel,
+						msg.axis,
+						msg.value,
+						"inspector",
+						true, // ✅ همیشه live — command بعداً ساخته میشه
+					);
+
+					// ✅ timer برای commit
+					if (this.commitTimer) clearTimeout(this.commitTimer);
+					this.commitTimer = setTimeout(() => {
+						void commitPending();
+					}, 600); // ۶۰۰ms بعد از آخرین تغییر commit کن
+
+					// ✅ اگه non-live اومد، فوری commit کن
+					if (msg.live !== true) {
+						await commitPending();
+					}
 					break;
 				}
 
@@ -164,12 +228,19 @@ export class InspectorProvider implements vscode.WebviewViewProvider {
 			inspLog.info("webview disposed");
 			this.disposeSubs();
 			this.view = null;
-			// ✨ پاک‌سازی throttle timer
 			if (this.pushTimer) {
 				clearTimeout(this.pushTimer);
 				this.pushTimer = null;
 			}
+			if (this.commitTimer) {
+				clearTimeout(this.commitTimer);
+				this.commitTimer = null;
+			}
 			this.pendingPush = false;
+			this.pendingBefore = null;
+			this.pendingNodeId = null;
+			this.pendingChannel = null;
+			this.pendingAxis = null;
 		});
 
 		pushInspect();

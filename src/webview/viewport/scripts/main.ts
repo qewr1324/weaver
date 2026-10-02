@@ -11,19 +11,19 @@ import { setupPicking, applySelection } from "./picking";
 import { rebuildScene } from "./scene";
 import { applySnap } from "./snap";
 
-// ✨ فاز ۳ — ماژول‌های جدید
 import { installCameraPersist, restoreCamera } from "./camera-persist";
 import { installAxesIndicator, drawAxesIndicator } from "./axes-indicator";
 import { installViewportContextMenu } from "./context-menu";
 import { installPerformanceHud, updatePerformanceHud } from "./performance-hud";
 import { setupFocusHotkey } from "./focus";
 import { drawSelectionBox } from "./selection-box";
-
-// ✨ Grid جدید
-import { buildGrid, DEFAULT_GRID, getGridOptions } from "./grid";
 import { installGridControls } from "./grid-controls";
 
-// ⚠️ موقت — برای debug
+// ✨ جدید — ماژول‌های مستقل undo/redo
+import { installUndoRedo } from "./undo-redo";
+import { installTransformCommit } from "./transform-commit";
+
+// ⚠️ موقت
 import { installLeakDetector } from "./debug-leak";
 
 function boot(): void {
@@ -58,35 +58,28 @@ function boot(): void {
 	applyRotation();
 	restoreCamera();
 
-	// lights
 	const sun = new BABYLON.DirectionalLight("sun", new BABYLON.Vector3(-0.5, -1, -0.3), sc);
 	sun.intensity = 1.2;
 	const amb = new BABYLON.HemisphericLight("amb", new BABYLON.Vector3(0, 1, 0), sc);
 	amb.intensity = 0.8;
 
-	// ✅ grid — حالا با ماژول grid.ts ساخته میشه
-	// (buildGrid در installGridControls صدا زده میشه)
-
-	// ✅ HighlightLayer حذف شد — از outline استفاده می‌کنیم
-
-	// setup
 	setupGizmo();
 	setupGizmoSync();
 	setupInput();
 	setupPicking();
 	setupLookModeListeners();
 
-	// ✨ فاز ۳
 	installCameraPersist();
 	installAxesIndicator();
 	installViewportContextMenu();
 	installPerformanceHud();
 	setupFocusHotkey();
+	installGridControls();
 
-	// ✨ grid
-	installGridControls(); // این buildGrid رو هم صدا می‌زنه
+	// ✨ نصب ماژول‌های مستقل
+	installUndoRedo();
+	installTransformCommit();
 
-	// ⚠️ debug
 	installLeakDetector();
 
 	eng.runRenderLoop(() => {
