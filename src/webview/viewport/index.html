@@ -41,6 +41,13 @@
             </div>
 
             <div class="tb-group">
+                <button class="tb-btn" id="focusBtn" title="Focus on selection (Shift+F / Home)">
+                    <span class="icon">🎯</span>
+                    <span class="label">Focus</span>
+                </button>
+            </div>
+
+            <div class="tb-group">
                 <button class="tb-btn" id="lookModeBtn" title="Toggle Look Mode (F)">
                     <span class="icon">👁</span>
                     <span class="label">Look</span>
@@ -53,13 +60,15 @@
             <div id="crosshair"></div>
             <div id="hud">
                 <b>Weaver Viewport</b><br />
-                <span class="k" id="hudLookKey">F</span> toggle look mode &nbsp;
-                <span class="k">IJKL</span>/<span class="k">Arrows</span> look<br />
-                <span class="k">WASD</span> move &nbsp; <span class="k">Q/E</span> down/up<br />
-                <span class="k">Shift</span> fast &nbsp; <span class="k">Space</span> slow &nbsp;
-                <span class="k">Wheel</span> speed<br />
-                <span class="k">LMB</span> select &nbsp; <span class="k">Esc</span> deselect &nbsp;
-                <span class="k">Del</span> delete
+                <span class="k" id="hudLookKey">F</span> look &nbsp;
+                <span class="k">Shift+F</span> focus &nbsp;
+                <span class="k">F3</span> stats<br />
+                <span class="k">WASD</span> move &nbsp; <span class="k">Q/E</span> down/up &nbsp;
+                <span class="k">IJKL</span> look<br />
+                <span class="k">G/R/T</span> move/rotate/scale &nbsp; <span class="k">Del</span> delete<br />
+                <span class="k">Ctrl+D</span> dup &nbsp;
+                <span class="k">Ctrl+Shift+A</span> deselect &nbsp;
+                <span class="k">Ctrl+Shift+G</span> grid
             </div>
             <div id="fps">-- FPS</div>
             <div id="status" class="off">● F to look · WASD to move</div>
@@ -70,6 +79,21 @@
 
     <script nonce="{{nonce}}" src="https://cdn.babylonjs.com/babylon.js"></script>
     <script nonce="{{nonce}}" src="{{scriptUri}}"></script>
+
+    <script nonce="{{nonce}}">
+        // ✨ اتصال دکمه‌ی Focus به focus.ts (بعد از load شدن همه ماژول‌ها)
+        window.addEventListener("load", () => {
+            setTimeout(() => {
+                const btn = document.getElementById("focusBtn");
+                if (btn) {
+                    btn.addEventListener("click", () => {
+                        // ارسال event به script اصلی
+                        window.dispatchEvent(new CustomEvent("weaver:focus"));
+                    });
+                }
+            }, 100);
+        });
+    </script>
 </body>
 
 </html>

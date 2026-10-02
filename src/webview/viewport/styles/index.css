@@ -1,5 +1,8 @@
 /* src/webview/viewport/styles/index.css */
+@import "./theme.css";
 @import "./base.css";
 @import "./toolbar.css";
 @import "./hud.css";
 @import "./overlays.css";
+@import "./context-menu.css";
+@import "./performance-hud.css";

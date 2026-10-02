@@ -1,0 +1,37 @@
+/* src/webview/viewport/styles/theme.css */
+/* ✨ جدید — Alias های معنایی روی VS Code theme variables برای viewport */
+
+:root {
+    --vp-bg: var(--vscode-editor-background, #1a1f2e);
+    --vp-bg-elevated: var(--vscode-editorWidget-background, #161B22);
+    --vp-fg: var(--vscode-foreground, #C9D1D9);
+    --vp-fg-muted: var(--vscode-descriptionForeground, #6E7681);
+    --vp-fg-bright: var(--vscode-editor-foreground, #FFFFFF);
+
+    --vp-border: var(--vscode-panel-border, #21262D);
+    --vp-border-soft: var(--vscode-widget-border, #30363D);
+
+    --vp-accent: var(--vscode-focusBorder, #A78BFA);
+    --vp-accent-fg: var(--vscode-button-foreground, #FFFFFF);
+    --vp-accent-bg: var(--vscode-button-background, #6B46C1);
+    --vp-accent-hover: var(--vscode-button-hoverBackground, #7C5ACF);
+
+    --vp-hover-bg: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
+    --vp-hover-fg: var(--vscode-toolbar-hoverOutline, transparent);
+
+    --vp-input-bg: var(--vscode-input-background, #161B22);
+    --vp-input-fg: var(--vscode-input-foreground, #C9D1D9);
+    --vp-input-border: var(--vscode-input-border, #30363D);
+
+    --vp-badge-bg: var(--vscode-badge-background, #6B46C1);
+    --vp-badge-fg: var(--vscode-badge-foreground, #FFFFFF);
+
+    --vp-warn: var(--vscode-editorWarning-foreground, #FFA500);
+    --vp-ok: var(--vscode-testing-iconPassed, #6BFF8F);
+    --vp-error: var(--vscode-errorForeground, #F85149);
+
+    --vp-shadow: var(--vscode-widget-shadow, 0 4px 12px rgba(0, 0, 0, 0.5));
+
+    --vp-radius: 4px;
+    --vp-radius-sm: 2px;
+}

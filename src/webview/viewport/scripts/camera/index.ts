@@ -1,5 +1,6 @@
 // src/webview/viewport/scripts/camera/index.ts
 import { camera, camState, keys, lookState, shiftHeld, spaceHeld } from "../state";
+import { scheduleSaveCamera } from "../camera-persist"; // ✨ جدید
 
 export function applyRotation(): void {
 	if (!camera) return;
@@ -14,6 +15,7 @@ export function rotate(dx: number, dy: number): void {
 	camState.pitch -= dy * lookState.mouseSens;
 	camState.pitch = Math.max(-1.55, Math.min(1.55, camState.pitch));
 	applyRotation();
+	scheduleSaveCamera(); // ✨ جدید
 }
 
 export function updateCamera(dt: number): void {
@@ -66,5 +68,6 @@ export function updateCamera(dt: number): void {
 	if (move.lengthSquared() > 0) {
 		move.normalize().scaleInPlace(speed);
 		camera.position.addInPlace(move);
+		scheduleSaveCamera(); // ✨ جدید
 	}
 }

@@ -11,6 +11,14 @@ import { setupPicking, applySelection } from "./picking";
 import { rebuildScene } from "./scene";
 import { applySnap } from "./snap";
 
+// ✨ فاز ۳ — ماژول‌های جدید
+import { installCameraPersist, restoreCamera } from "./camera-persist";
+import { installAxesIndicator, drawAxesIndicator } from "./axes-indicator";
+import { installViewportContextMenu } from "./context-menu";
+import { installPerformanceHud, updatePerformanceHud } from "./performance-hud";
+import { setupFocusHotkey } from "./focus";
+import { drawSelectionBox } from "./selection-box";
+
 function boot(): void {
 	cacheDomRefs();
 
@@ -41,6 +49,7 @@ function boot(): void {
 	(window as any).__weaver_scene = sc;
 
 	applyRotation();
+	restoreCamera(); // ✨ جدید — بازیابی موقعیت دوربین
 
 	// lights
 	const sun = new BABYLON.DirectionalLight("sun", new BABYLON.Vector3(-0.5, -1, -0.3), sc);
@@ -77,11 +86,23 @@ function boot(): void {
 	setupPicking();
 	setupLookModeListeners();
 
+	// ✨ فاز ۳ — نصب ماژول‌های جدید
+	installCameraPersist();
+	installAxesIndicator();
+	installViewportContextMenu();
+	installPerformanceHud();
+	setupFocusHotkey();
+
 	eng.runRenderLoop(() => {
 		updateCamera(eng.getDeltaTime() / 1000);
 		applySnap();
 		sc.render();
 		dom.fps.textContent = eng.getFps().toFixed(0) + " FPS";
+
+		// ✨ فاز ۳ — آپدیت‌های هر فریم
+		drawAxesIndicator();
+		updatePerformanceHud();
+		drawSelectionBox();
 	});
 
 	window.addEventListener("resize", () => eng.resize());

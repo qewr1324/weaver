@@ -14,9 +14,10 @@ body {
     margin: 0;
     padding: 0;
     overflow: hidden;
-    background: #1a1f2e;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    color: #C9D1D9;
+    background: var(--vp-bg, #1a1f2e);
+    font-family: var(--vscode-font-family, ui-monospace, monospace);
+    font-size: var(--vscode-font-size, 13px);
+    color: var(--vp-fg, #C9D1D9);
 }
 
 #viewport {

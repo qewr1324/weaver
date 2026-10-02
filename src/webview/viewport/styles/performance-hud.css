@@ -1,0 +1,32 @@
+/* src/webview/viewport/styles/performance-hud.css */
+#perf-hud {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(13, 17, 23, 0.85);
+    border: 1px solid var(--vp-border-soft, #30363D);
+    border-radius: var(--vp-radius, 4px);
+    padding: 6px 10px;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 11px;
+    color: var(--vp-fg, #C9D1D9);
+    z-index: 11;
+    pointer-events: none;
+    min-width: 140px;
+    line-height: 1.5;
+}
+
+.perf-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.perf-row span {
+    color: var(--vp-fg-muted, #6E7681);
+}
+
+.perf-row b {
+    color: var(--vp-ok, #6BFF8F);
+    font-weight: 600;
+}
