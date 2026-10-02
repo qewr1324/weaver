@@ -23,44 +23,97 @@
         .row {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 4px;
             padding: 3px 8px;
         }
 
         .row label {
-            width: 16px;
+            width: 18px;
             color: #A78BFA;
             text-align: center;
             font-weight: 600;
+            cursor: ew-resize;
+            user-select: none;
+            transition: color .15s;
         }
 
-        .row input {
+        .row label:hover {
+            color: #C4B5FD;
+        }
+
+        .row label.reset {
+            color: #6E7681;
+            font-size: 10px;
+            cursor: pointer;
+            width: 14px;
+        }
+
+        .row label.reset:hover {
+            color: #FFA500;
+        }
+
+        .row input[type="number"],
+        .row input[type="text"] {
             flex: 1;
+            min-width: 0;
             background: #161B22;
             border: 1px solid #30363D;
             color: #C9D1D9;
             padding: 3px 6px;
             border-radius: 3px;
             font: inherit;
-            transition: border-color .15s;
+            transition: border-color .15s, background .15s;
         }
 
         .row input:focus {
             outline: none;
             border-color: #A78BFA;
             box-shadow: 0 0 0 1px #A78BFA55;
+            background: #0D1117;
+        }
+
+        .row input:disabled {
+            color: #6E7681;
+            cursor: default;
+            opacity: 0.85;
         }
 
         .row input[type="color"] {
             padding: 0;
             height: 22px;
+            border: 1px solid #30363D;
+            border-radius: 3px;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        .row input[type="number"]::-webkit-outer-spin-button,
+        .row input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .row input[type="number"] {
+            -moz-appearance: textfield;
         }
 
         .empty {
-            padding: 24px 12px;
+            padding: 32px 12px;
             text-align: center;
             color: #6E7681;
             font-style: italic;
+            line-height: 1.8;
+        }
+
+        .empty kbd {
+            display: inline-block;
+            padding: 1px 6px;
+            border: 1px solid #30363D;
+            border-radius: 3px;
+            background: #161B22;
+            color: #C9D1D9;
+            font-size: 10px;
+            margin: 0 2px;
         }
 
         .name {
@@ -83,6 +136,7 @@
             font-weight: 600;
             padding: 2px 4px;
             border-radius: 3px;
+            min-width: 0;
         }
 
         .name input:focus {
@@ -94,7 +148,11 @@
         .name .type {
             color: #6E7681;
             font-weight: 400;
-            font-size: 11px;
+            font-size: 10px;
+            padding: 2px 6px;
+            background: #0D1117;
+            border-radius: 3px;
+            border: 1px solid #21262D;
         }
 
         .comp {
@@ -112,6 +170,32 @@
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            user-select: none;
+        }
+
+        .comp-head .actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .comp-head .mini {
+            background: transparent;
+            border: 1px solid #30363D;
+            color: #8B949E;
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all .12s;
+        }
+
+        .comp-head .mini:hover {
+            color: #C9D1D9;
+            border-color: #6B46C1;
+            background: #6B46C1;
         }
 
         .comp-body {
@@ -126,6 +210,19 @@
             border-radius: 4px;
             text-align: center;
             font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .multi-badge .list {
+            color: #E9D5FF;
+            font-size: 10px;
+            opacity: 0.85;
+            max-width: 60%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .live-dot {
@@ -150,6 +247,27 @@
                 opacity: 0.4;
             }
         }
+
+        .search-wrap {
+            padding: 6px 8px;
+            border-bottom: 1px solid #21262D;
+            background: #0D1117;
+        }
+
+        .search-wrap input {
+            width: 100%;
+            background: #161B22;
+            border: 1px solid #30363D;
+            color: #C9D1D9;
+            padding: 3px 6px;
+            border-radius: 3px;
+            font: inherit;
+        }
+
+        .search-wrap input:focus {
+            outline: none;
+            border-color: #A78BFA;
+        }
     </style>
 </head>
 
@@ -164,12 +282,30 @@
         let current = null;
         let isMulti = false;
         let count = 0;
+        let multiNames = [];
 
         let focusedFieldId = null;
+        let propertyFilter = '';
 
         const pending = new Map();
         let flushTimer = null;
         const THROTTLE_MS = 16;
+
+        // ---- Live dot ping ----
+        let liveDotEl = null;
+        let liveDotTimer = null;
+        function pingLive() {
+            if (!liveDotEl) return;
+            liveDotEl.style.background = '#ffd166';
+            liveDotEl.style.boxShadow = '0 0 8px #ffd166cc';
+            if (liveDotTimer) clearTimeout(liveDotTimer);
+            liveDotTimer = setTimeout(() => {
+                if (liveDotEl) {
+                    liveDotEl.style.background = '#22c55e';
+                    liveDotEl.style.boxShadow = '0 0 4px #22c55e88';
+                }
+            }, 180);
+        }
 
         function scheduleUpdate(nodeId, channel, axis, value) {
             const key = `${nodeId}:${channel}:${axis}`;
@@ -188,7 +324,24 @@
                     });
                 }
                 pending.clear();
+                pingLive();
             }, THROTTLE_MS);
+        }
+
+        function flushPending(final) {
+            if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+            for (const msg of pending.values()) {
+                vscode.postMessage({
+                    type: 'update:transform',
+                    nodeId: msg.nodeId,
+                    channel: msg.channel,
+                    axis: msg.axis,
+                    value: msg.value,
+                    live: !final ? true : false,
+                });
+            }
+            pending.clear();
+            pingLive();
         }
 
         function formatNum(v) {
@@ -205,24 +358,36 @@
 
         const AXES = ['x', 'y', 'z'];
         const CHANNELS = [
-            { key: 'position', label: 'Position' },
-            { key: 'rotation', label: 'Rotation' },
-            { key: 'scale', label: 'Scale' },
+            { key: 'position', label: 'Position', default: 0 },
+            { key: 'rotation', label: 'Rotation', default: 0 },
+            { key: 'scale', label: 'Scale', default: 1 },
         ];
 
         function renderTransform() {
-            let html = '<div class="comp">';
-            html += '<div class="comp-head">Transform <span class="live-dot" title="Live sync"></span></div>';
+            const filter = propertyFilter.trim().toLowerCase();
+            const channels = CHANNELS.filter(ch =>
+                !filter || ch.key.includes(filter) || ch.label.toLowerCase().includes(filter) || 'transform'.includes(filter)
+            );
+            if (channels.length === 0) return '';
+
+            let html = '<div class="comp" data-comp="transform">';
+            html += '<div class="comp-head">Transform <span class="live-dot" id="liveDot" title="Live sync"></span></div>';
             html += '<div class="comp-body">';
-            for (const ch of CHANNELS) {
+            for (const ch of channels) {
                 for (const ax of AXES) {
                     const v = current.transform[ch.key][ax];
                     const val = formatNum(v);
                     html += `<div class="row">
-            <label>${ax.toUpperCase()}</label>
+            <label title="${ch.label}.${ax.toUpperCase()} — drag to change"
+                   data-drag="${ch.key}.${ax}"
+                   data-step="${ch.key === 'scale' ? 0.01 : 0.1}">${ax.toUpperCase()}</label>
             <input type="number" step="any"
               data-ch="${ch.key}" data-ax="${ax}"
-              value="${val}" />
+              value="${val}"
+              title="${ch.label}.${ax.toUpperCase()}" />
+            <label class="reset" data-reset="${ch.key}.${ax}"
+                   data-default="${ch.default}"
+                   title="Reset to ${ch.default}">⟲</label>
           </div>`;
                 }
             }
@@ -230,19 +395,38 @@
             return html;
         }
 
+        function isColorValue(v) {
+            if (typeof v !== 'string') return false;
+            return /^#([0-9a-fA-F]{3,8})$/.test(v) || /^rgb/.test(v);
+        }
+
         function renderComponents() {
+            const filter = propertyFilter.trim().toLowerCase();
             let html = '';
             for (const c of current.components || []) {
                 const title = c.type.charAt(0).toUpperCase() + c.type.slice(1);
-                html += '<div class="comp">';
+                if (filter && !c.type.toLowerCase().includes(filter)) continue;
+
+                html += '<div class="comp" data-comp="' + esc(c.type) + '">';
                 html += `<div class="comp-head">${esc(title)}</div>`;
                 html += '<div class="comp-body">';
                 const entries = Object.entries(c).filter(([k]) => k !== 'id' && k !== 'type');
                 for (const [k, v] of entries) {
-                    const display = typeof v === 'object' ? JSON.stringify(v) : String(v);
+                    let input;
+                    if (isColorValue(v)) {
+                        const hex = v.length === 4
+                            ? '#' + v[1] + v[1] + v[2] + v[2] + v[3] + v[3]
+                            : v.slice(0, 7);
+                        input = `<input type="color" data-prop="${esc(k)}" value="${esc(hex)}" />`;
+                    } else if (typeof v === 'number') {
+                        input = `<input type="number" step="any" data-prop-num="${esc(k)}" value="${formatNum(v)}" />`;
+                    } else {
+                        const display = typeof v === 'object' ? JSON.stringify(v) : String(v);
+                        input = `<input type="text" data-prop="${esc(k)}" value="${esc(display)}" />`;
+                    }
                     html += `<div class="row">
-            <label>${esc(k.charAt(0))}</label>
-            <input type="text" disabled value="${esc(display)}" />
+            <label title="${esc(k)}">${esc(k.charAt(0))}</label>
+            ${input}
           </div>`;
                 }
                 html += '</div></div>';
@@ -258,38 +442,58 @@
                     if (!inp) continue;
                     if (document.activeElement === inp) continue;
                     const newStr = formatNum(current.transform[ch.key][ax]);
-                    if (inp.value !== newStr) {
-                        inp.value = newStr;
-                    }
+                    if (inp.value !== newStr) inp.value = newStr;
                 }
             }
         }
 
         function renderFull() {
             if (!current) {
-                root.innerHTML = '<div class="empty">No selection</div>';
+                root.innerHTML = `<div class="empty">
+          No selection<br/>
+          <span style="font-size:11px;color:#484f58">
+            Click a mesh in the viewport<br/>
+            <kbd>Ctrl</kbd>+click to add to selection
+          </span>
+        </div>`;
                 focusedFieldId = null;
+                liveDotEl = null;
                 return;
             }
 
             let html = '';
             if (isMulti) {
-                html += `<div class="multi-badge">${count} nodes selected — showing primary</div>`;
+                const names = multiNames.slice(0, 3).map(esc).join(', ');
+                const more = multiNames.length > 3 ? ` +${multiNames.length - 3}` : '';
+                html += `<div class="multi-badge">
+          <span>${count} selected</span>
+          <span class="list">${names}${more}</span>
+        </div>`;
             }
 
             html += `<div class="name">
-        <input type="text" id="nameInput" value="${esc(current.name)}" />
-        <span class="type">${esc(current.id.slice(0, 12))}</span>
+        <input type="text" id="nameInput" value="${esc(current.name)}" spellcheck="false" />
+        <span class="type">${esc(current.id.slice(0, 8))}</span>
+      </div>`;
+
+            html += `<div class="search-wrap">
+        <input type="text" id="propFilter" placeholder="Filter properties…" value="${esc(propertyFilter)}" spellcheck="false" />
       </div>`;
 
             html += renderTransform();
             html += renderComponents();
             root.innerHTML = html;
 
+            liveDotEl = document.getElementById('liveDot');
             bindInputs();
         }
 
+        function copyToClipboard(text) {
+            try { navigator.clipboard?.writeText(text); } catch { }
+        }
+
         function bindInputs() {
+            // --- Numeric transform inputs ---
             root.querySelectorAll('input[data-ch]').forEach(inp => {
                 const fid = `${inp.dataset.ch}.${inp.dataset.ax}`;
 
@@ -304,39 +508,26 @@
 
                 inp.addEventListener('input', () => {
                     const raw = inp.value.trim();
-                    if (raw === '' || raw === '-' || raw === '.') return;
-
+                    if (raw === '' || raw === '-' || raw === '.' || raw === '-.') return;
                     const parsed = parseFloat(raw);
                     if (!Number.isFinite(parsed)) return;
-
-                    if (current) {
-                        current.transform[inp.dataset.ch][inp.dataset.ax] = parsed;
-                    }
-
+                    if (current) current.transform[inp.dataset.ch][inp.dataset.ax] = parsed;
                     scheduleUpdate(current.id, inp.dataset.ch, inp.dataset.ax, parsed);
                 });
 
                 inp.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
                         e.preventDefault();
-                        if (flushTimer) clearTimeout(flushTimer);
-                        flushTimer = null;
-                        for (const msg of pending.values()) {
-                            vscode.postMessage({
-                                type: 'update:transform',
-                                nodeId: msg.nodeId,
-                                channel: msg.channel,
-                                axis: msg.axis,
-                                value: msg.value,
-                                live: false,
-                            });
-                        }
-                        pending.clear();
+                        flushPending(true);
                         inp.blur();
                     }
-
+                    if (e.key === 'Escape') {
+                        e.preventDefault();
+                        if (current) inp.value = formatNum(current.transform[inp.dataset.ch][inp.dataset.ax]);
+                        inp.blur();
+                    }
                     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-                        const step = e.shiftKey ? 1 : (e.ctrlKey || e.metaKey ? 0.01 : 0.1);
+                        const step = e.shiftKey ? 1 : ((e.ctrlKey || e.metaKey) ? 0.01 : 0.1);
                         const dir = e.key === 'ArrowUp' ? 1 : -1;
                         const cur = parseFloat(inp.value) || 0;
                         const next = +(cur + dir * step).toFixed(6);
@@ -347,33 +538,168 @@
                 });
             });
 
+            // --- Drag on axis labels ---
+            root.querySelectorAll('label[data-drag]').forEach(lbl => {
+                let dragging = false;
+                let startX = 0;
+                let startVal = 0;
+                const step = parseFloat(lbl.dataset.step) || 0.1;
+
+                lbl.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    dragging = true;
+                    startX = e.clientX;
+                    const [ch, ax] = lbl.dataset.drag.split('.');
+                    startVal = current ? (current.transform[ch][ax] || 0) : 0;
+                    document.body.style.cursor = 'ew-resize';
+                });
+
+                const move = (e) => {
+                    if (!dragging) return;
+                    const [ch, ax] = lbl.dataset.drag.split('.');
+                    const dx = e.clientX - startX;
+                    const mult = e.shiftKey ? 10 : (e.altKey ? 0.1 : 1);
+                    const next = +(startVal + dx * step * mult).toFixed(4);
+                    const inp = root.querySelector(`input[data-ch="${ch}"][data-ax="${ax}"]`);
+                    if (inp) {
+                        inp.value = formatNum(next);
+                        inp.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                };
+                const up = () => {
+                    if (!dragging) return;
+                    dragging = false;
+                    document.body.style.cursor = '';
+                    flushPending(true);
+                };
+                window.addEventListener('mousemove', move);
+                window.addEventListener('mouseup', up);
+            });
+
+            // --- Reset buttons ---
+            root.querySelectorAll('label[data-reset]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const [ch, ax] = btn.dataset.reset.split('.');
+                    const def = parseFloat(btn.dataset.default) || 0;
+                    const inp = root.querySelector(`input[data-ch="${ch}"][data-ax="${ax}"]`);
+                    if (inp) {
+                        inp.value = formatNum(def);
+                        inp.dispatchEvent(new Event('input', { bubbles: true }));
+                        flushPending(true);
+                    }
+                });
+            });
+
+            // --- Generic props (color, number, text) ---
+            root.querySelectorAll('input[data-prop], input[data-prop-num]').forEach(inp => {
+                const prop = inp.dataset.prop || inp.dataset.propNum;
+                const isNum = inp.hasAttribute('data-prop-num');
+                const isColor = inp.type === 'color';
+
+                inp.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        vscode.postMessage({
+                            type: 'update:property',
+                            nodeId: current?.id,
+                            prop,
+                            value: isNum ? parseFloat(inp.value) : inp.value,
+                            live: false,
+                        });
+                        inp.blur();
+                    }
+                });
+
+                if (isColor || isNum) {
+                    let throttle = null;
+                    const send = () => {
+                        if (throttle) return;
+                        throttle = setTimeout(() => {
+                            throttle = null;
+                            vscode.postMessage({
+                                type: 'update:property',
+                                nodeId: current?.id,
+                                prop,
+                                value: isNum ? parseFloat(inp.value) : inp.value,
+                                live: true,
+                            });
+                            pingLive();
+                        }, 32);
+                    };
+                    inp.addEventListener('input', send);
+                    inp.addEventListener('change', () => {
+                        if (throttle) { clearTimeout(throttle); throttle = null; }
+                        vscode.postMessage({
+                            type: 'update:property',
+                            nodeId: current?.id,
+                            prop,
+                            value: isNum ? parseFloat(inp.value) : inp.value,
+                            live: false,
+                        });
+                    });
+                }
+            });
+
+            // --- Name input ---
             const nameInput = document.getElementById('nameInput');
             nameInput?.addEventListener('focus', () => { focusedFieldId = '__name__'; });
             nameInput?.addEventListener('blur', () => { focusedFieldId = null; });
+            nameInput?.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); nameInput.blur(); }
+            });
             nameInput?.addEventListener('change', () => {
                 const v = nameInput.value.trim();
                 if (v === '' || !current || v === current.name) return;
                 vscode.postMessage({ type: 'rename', nodeId: current.id, name: v });
             });
+
+            // --- Property filter ---
+            const filterInput = document.getElementById('propFilter');
+            filterInput?.addEventListener('input', () => {
+                propertyFilter = filterInput.value;
+                // soft re-render body only (preserve filter input focus)
+                const scroll = root.scrollTop;
+                renderFull();
+                root.scrollTop = scroll;
+                const f = document.getElementById('propFilter');
+                if (f) {
+                    f.focus();
+                    f.setSelectionRange(f.value.length, f.value.length);
+                }
+            });
         }
 
+        // ---- Keyboard shortcuts in inspector ----
+        window.addEventListener('keydown', (e) => {
+            if (e.target && e.target.tagName === 'INPUT' && e.target.type !== 'number') return;
+            if (e.key === 'Escape') {
+                const active = document.activeElement;
+                if (active && active.tagName === 'INPUT') active.blur();
+            }
+        });
+
+        // ---- Incoming messages ----
         window.addEventListener('message', (e) => {
             const msg = e.data;
             if (msg.type !== 'inspect') return;
 
             const newPayload = msg.payload;
 
+            // Same node — just refresh numeric values
             if (current && newPayload && current.id === newPayload.id) {
                 current = newPayload;
                 isMulti = msg.multi || false;
                 count = msg.count || 0;
+                multiNames = msg.names || [];
                 updateTransformValues();
                 return;
             }
 
+            // New selection
             current = newPayload;
             isMulti = msg.multi || false;
             count = msg.count || 0;
+            multiNames = msg.names || [];
             renderFull();
         });
     </script>
