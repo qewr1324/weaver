@@ -30,6 +30,7 @@ function flush(final: boolean): void {
 			axis: msg.axis,
 			value: msg.value,
 			live: !final,
+			source: "inspector",
 		});
 	}
 	pending.clear();
@@ -52,7 +53,14 @@ export const Messaging = {
 	},
 
 	updateProperty(nodeId: string | undefined, prop: string, value: unknown, live: boolean): void {
-		postToExtension({ type: "update:property", nodeId, prop, value, live });
+		postToExtension({
+			type: "update:property",
+			nodeId,
+			prop,
+			value,
+			live,
+			source: "inspector",
+		});
 	},
 
 	rename(nodeId: string, name: string): void {

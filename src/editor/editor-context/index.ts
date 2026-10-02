@@ -92,7 +92,7 @@ export class EditorContext extends Disposable {
 		this.bus.emit("dirty:changed", value);
 	}
 
-	setNodeTransform(node: Node, snapshot: TransformSnapshot, source: TransformSource): void {
+	setNodeTransform(node: Node, snapshot: TransformSnapshot, source: TransformSource, live = false): void {
 		node.transform.position = { ...snapshot.position };
 		node.transform.rotation = { ...snapshot.rotation };
 		node.transform.scale = { ...snapshot.scale };
@@ -105,21 +105,22 @@ export class EditorContext extends Disposable {
 				scale: { ...snapshot.scale },
 			},
 			source,
+			live,
 		});
 
-		if (source !== "load") {
+		if (source !== "load" && !live) {
 			this.scene.bus.emit("scene:changed", undefined);
 		}
 	}
 
-	setNodeTransformAxis(node: Node, channel: TransformChannel, axis: TransformAxis, value: number, source: TransformSource): void {
+	setNodeTransformAxis(node: Node, channel: TransformChannel, axis: TransformAxis, value: number, source: TransformSource, live = false): void {
 		const snapshot: TransformSnapshot = {
 			position: { ...node.transform.position },
 			rotation: { ...node.transform.rotation },
 			scale: { ...node.transform.scale },
 		};
 		(snapshot[channel] as any)[axis] = value;
-		this.setNodeTransform(node, snapshot, source);
+		this.setNodeTransform(node, snapshot, source, live);
 	}
 
 	getNodeTransform(node: Node): TransformSnapshot {

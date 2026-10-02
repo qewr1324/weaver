@@ -22,6 +22,7 @@ export interface TransformChangedPayload {
 		scale: { x: number; y: number; z: number };
 	};
 	source: "viewport" | "inspector" | "undo" | "load";
+	live?: boolean;
 }
 
 export class Scene extends Disposable {

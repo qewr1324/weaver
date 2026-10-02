@@ -427,6 +427,9 @@
     let HOVER_COLOR = new BABYLON.Color3(0.4, 0.75, 1.0);
     let SELECT_COLOR = new BABYLON.Color3(1.0, 0.6, 0.15);
 
+    // ⭐ track gizmoهایی که listener بهشون بسته شده
+    const gizmoListenersAttached = new WeakSet();
+
     function log(...a) { console.log('[Weaver]', ...a); }
 
     function setStatus(text, active, isLook) {
@@ -751,6 +754,9 @@
         gizmoManager.gizmos.scaleGizmo.updateGizmoRotationToMatchAttachedMesh = (editor.referenceMode === 'object');
       }
 
+      // ⭐ حالا که gizmo ساخته شده، listener بهش ببند
+      setupGizmoSync();
+
       if (selectedIds.length > 0) attachGizmoTo(selectedIds[0]);
       setActiveInGroup(transformGroup, mode);
       setStatus('● Transform: ' + mode, true);
@@ -831,7 +837,9 @@
     }
 
     function setupGizmoSync() {
-      const postTransform = (attached) => {
+      if (!gizmoManager) return;
+
+      const postTransform = (attached, live) => {
         if (suppressGizmoSync) return;
         const nodeId = meshToNodeId.get(attached) || rootToNodeId.get(attached);
         if (!nodeId) return;
@@ -846,13 +854,17 @@
             rotation: { x: q.x, y: q.y, z: q.z, w: q.w },
             scale: { x: worldScale.x, y: worldScale.y, z: worldScale.z },
           },
-          live: true,
+          source: 'viewport',
+          live,
         });
       };
 
       const attach = (gizmoName) => {
         const gizmo = gizmoManager.gizmos[gizmoName];
         if (!gizmo) return;
+        // ⭐ اگه قبلاً listener بستیم، دوباره نبند
+        if (gizmoListenersAttached.has(gizmo)) return;
+        gizmoListenersAttached.add(gizmo);
 
         let dragThrottle = null;
         gizmo.onDragObservable.add(() => {
@@ -860,7 +872,7 @@
           dragThrottle = setTimeout(() => {
             dragThrottle = null;
             const target = gizmo.attachedNode || gizmoManager.attachedMesh;
-            if (target) postTransform(target);
+            if (target) postTransform(target, true);
           }, 16);
         });
 
@@ -870,8 +882,10 @@
             dragThrottle = null;
           }
           const target = gizmo.attachedNode || gizmoManager.attachedMesh;
-          if (target) postTransform(target);
+          if (target) postTransform(target, false);
         });
+
+        log('gizmoSync attached:', gizmoName);
       };
 
       attach('positionGizmo');
@@ -1034,6 +1048,13 @@
             }
           }
           return;
+        }
+
+        // ⭐ hotkeys برای transform mode
+        if (!lookMode && !e.ctrlKey && !e.metaKey) {
+          if (code === 'KeyG') { setTransformMode('move'); return; }
+          if (code === 'KeyR') { setTransformMode('rotate'); return; }
+          if (code === 'KeyT') { setTransformMode('scale'); return; }
         }
 
         if (!lookMode) return;

@@ -17,10 +17,20 @@ Messaging.onMessage((msg) => {
 	if (msg.type !== "inspect") return;
 
 	const payload = msg.payload;
+	const isSameNode = state.current && payload && state.current.id === payload.id;
 
-	// همون node → فقط مقادیر عددی رو رفرش کن
-	if (state.current && payload && state.current.id === payload.id) {
-		setSelection(payload, {
+	if (isSameNode) {
+		// ⭐ فیلد در حال focus رو با state محلی preserve کن تا caret/تایپ پرش نکنه
+		const activeEl = document.activeElement as HTMLInputElement | null;
+		const activeCh = activeEl?.dataset?.ch;
+		const activeAx = activeEl?.dataset?.ax;
+
+		const merged = { ...payload };
+		if (activeCh && activeAx && activeEl?.matches("input[data-ch]")) {
+			(merged.transform as any)[activeCh][activeAx] = (state.current!.transform as any)[activeCh][activeAx];
+		}
+
+		setSelection(merged, {
 			multi: msg.multi || false,
 			count: msg.count || 0,
 			names: msg.names || [],

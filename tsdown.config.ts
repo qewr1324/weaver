@@ -1,5 +1,4 @@
 // tsdown.config.ts
-import { execFileSync } from "node:child_process";
 import { cpSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { build as esbuild } from "esbuild";
@@ -22,7 +21,6 @@ const WEBVIEW_TARGETS: WebviewTarget[] = [
 		styleEntry: "src/webview/inspector/styles/index.css",
 		htmlFile: "src/webview/inspector/index.html",
 	},
-	// viewport بعداً اضافه می‌شه
 ];
 
 async function buildWebview(t: WebviewTarget): Promise<void> {
@@ -30,7 +28,6 @@ async function buildWebview(t: WebviewTarget): Promise<void> {
 	rmSync(outDir, { recursive: true, force: true });
 	mkdirSync(outDir, { recursive: true });
 
-	// ── JS bundle ──
 	await esbuild({
 		entryPoints: [t.scriptEntry],
 		bundle: true,
@@ -43,7 +40,6 @@ async function buildWebview(t: WebviewTarget): Promise<void> {
 		logLevel: "warning",
 	});
 
-	// ── CSS bundle (esbuild @import رو inline می‌کنه) ──
 	await esbuild({
 		entryPoints: [t.styleEntry],
 		bundle: true,
@@ -51,7 +47,6 @@ async function buildWebview(t: WebviewTarget): Promise<void> {
 		logLevel: "warning",
 	});
 
-	// ── HTML shell ──
 	cpSync(t.htmlFile, join(outDir, "index.html"));
 
 	console.log(`[weaver] webview built: ${t.name} → dist/webview/${t.name}/`);
@@ -63,12 +58,10 @@ export default defineConfig({
 	shims: false,
 	dts: false,
 	external: ["vscode"],
+	clean: false,
 	hooks(hooks) {
 		hooks.hookOnce("build:prepare", async () => {
-			// ۱. اول update
-			execFileSync("bun", ["run", "update"], { stdio: "inherit" });
-
-			// ۲. بعد webviewها رو build کن
+			// فقط webviewها رو build کن — update رو کامنت کردم
 			for (const t of WEBVIEW_TARGETS) {
 				await buildWebview(t);
 			}

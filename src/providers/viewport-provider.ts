@@ -71,9 +71,9 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		const onNodeRemoved = doc.scene.bus.on("node:removed", () => sendFullScene());
 		const onSceneReloaded = doc.scene.bus.on("scene:reloaded", () => sendFullScene());
 
-		// ⭐ transform از scene bus
+		// ⭐ transform از scene bus — echo از viewport رو skip کن
 		const transformSub = doc.scene.bus.on("transform:changed", (payload) => {
-			if (payload.source === "viewport") return; // echo
+			if (payload.source === "viewport") return;
 			post({ type: "transform:apply", payload });
 		});
 
@@ -181,14 +181,19 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		const node = doc.scene.findNode(msg.nodeId);
 		if (!node) return;
 
+		// ⭐ source رو از پیام بخون، نه hardcode
+		const source: "viewport" | "inspector" = msg.source === "inspector" ? "inspector" : "viewport";
+
 		let snapshot: TransformSnapshot;
 		if (msg.transform) {
+			// full transform (gizmo drag از viewport)
 			snapshot = {
 				position: { ...msg.transform.position },
 				rotation: { ...msg.transform.rotation },
 				scale: { ...msg.transform.scale },
 			};
 		} else {
+			// single axis (inspector input)
 			if (typeof msg.value !== "number" || !Number.isFinite(msg.value)) return;
 			snapshot = {
 				position: { ...node.transform.position },
@@ -198,7 +203,7 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 			(snapshot as any)[msg.channel][msg.axis] = msg.value;
 		}
 
-		this.editor.setNodeTransform(node, snapshot, "viewport");
+		this.editor.setNodeTransform(node, snapshot, source, msg.live === true);
 	}
 
 	private async handleAddNode(doc: SceneDocument, data: any): Promise<void> {
