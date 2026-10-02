@@ -5,12 +5,13 @@ import { exitLookMode, toggleLookMode, setStatus } from "../../look-mode";
 import { setTransformMode } from "../../gizmo";
 import { postToExtension } from "../../messaging";
 import { scheduleSaveCamera } from "../../camera-persist";
+import { toggleGridVisible } from "../../grid"; // ✨ جدید
 
 let fallbackX = 0;
 let fallbackY = 0;
 
 function handleGlobalKey(code: string, e: KeyboardEvent): boolean {
-	// F → toggle look mode
+	// F → toggle look mode (Shift+F برای focus)
 	if (code === "KeyF" && !e.shiftKey) {
 		e.preventDefault();
 		e.stopPropagation();
@@ -57,30 +58,23 @@ function handleGlobalKey(code: string, e: KeyboardEvent): boolean {
 		return true;
 	}
 
-	// Ctrl/Cmd + Shift + G → toggle grid visibility
+	// ✨ Ctrl/Cmd + Shift + G → toggle grid visibility
 	if ((e.ctrlKey || e.metaKey) && e.shiftKey && code === "KeyG") {
 		e.preventDefault();
 		e.stopPropagation();
-		const sc = (window as any).__weaver_scene;
-		if (sc) {
-			const grid = sc.getMeshByName("__grid");
-			if (grid) grid.isVisible = !grid.isVisible;
-			const axX = sc.getMeshByName("__axis_x");
-			if (axX) axX.isVisible = grid?.isVisible ?? true;
-			const axZ = sc.getMeshByName("__axis_z");
-			if (axZ) axZ.isVisible = grid?.isVisible ?? true;
-		}
+		const visible = toggleGridVisible();
+		setStatus(`● Grid: ${visible ? "ON" : "OFF"}`, true);
 		return true;
 	}
 
-	// Home → focus
+	// Home → focus (focus.ts listener داره، اینجا فقط prevent default)
 	if (code === "Home") {
 		e.preventDefault();
 		e.stopPropagation();
 		return true;
 	}
 
-	// ✅ W / E / R → transform mode (فقط وقتی در look mode نیستیم و modifier نداریم)
+	// ✨ W / E / R → transform mode (فقط وقتی در look mode نیستیم و modifier نداریم)
 	if (!lookState.active && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
 		if (code === "KeyW") {
 			e.preventDefault();
@@ -108,6 +102,7 @@ function handleGlobalKey(code: string, e: KeyboardEvent): boolean {
 const LOOK_HANDLED_CODES = new Set<string>(["KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyE", "KeyI", "KeyJ", "KeyK", "KeyL", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "ShiftLeft", "ShiftRight"]);
 
 export function setupInput(): void {
+	// contextmenu — فقط روی canvas prevent کن (که context menu سفارشی کار کنه)
 	document.addEventListener(
 		"contextmenu",
 		(e) => {
@@ -143,7 +138,7 @@ export function setupInput(): void {
 		rotate(e.movementX, e.movementY);
 	});
 
-	// fallback mousemove
+	// fallback mousemove (وقتی pointer lock نداریم)
 	window.addEventListener("mousemove", (e: MouseEvent) => {
 		if (!lookState.active) return;
 		if (lookState.pointerLocked) return;
@@ -167,6 +162,7 @@ export function setupInput(): void {
 	window.addEventListener(
 		"keydown",
 		(e: KeyboardEvent) => {
+			// وقتی توی input هستیم، کاری نکن
 			if (e.target && (e.target as HTMLElement).tagName === "INPUT") return;
 
 			const code = e.code;

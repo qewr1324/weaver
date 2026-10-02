@@ -1,0 +1,70 @@
+/* src/webview/viewport/styles/grid-controls.css */
+
+.grid-ctrl-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 4px;
+    border-right: 1px solid var(--vp-border, #21262D);
+}
+
+.grid-ctrl-wrap:last-child {
+    border-right: none;
+}
+
+.grid-toggle.active {
+    background: var(--vp-accent-bg, #6B46C1);
+    color: var(--vp-accent-fg, #fff);
+}
+
+.grid-ctrl-inputs {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.grid-ctrl-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    background: var(--vp-input-bg, #161B22);
+    border: 1px solid var(--vp-border-soft, #30363D);
+    border-radius: var(--vp-radius, 4px);
+    padding: 0 4px;
+    height: 22px;
+}
+
+.grid-ctrl-field:hover {
+    border-color: var(--vp-accent, #A78BFA);
+}
+
+.grid-ctrl-label {
+    font-size: 9px;
+    color: var(--vp-fg-muted, #6E7681);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    user-select: none;
+}
+
+.grid-ctrl-field input[type="number"] {
+    width: 38px;
+    background: transparent;
+    border: none;
+    color: var(--vp-fg, #C9D1D9);
+    font: inherit;
+    font-size: 11px;
+    padding: 0;
+    text-align: center;
+    outline: none;
+    -moz-appearance: textfield;
+}
+
+.grid-ctrl-field input[type="number"]::-webkit-outer-spin-button,
+.grid-ctrl-field input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.grid-ctrl-field input[type="number"]:focus {
+    color: var(--vp-accent, #A78BFA);
+}

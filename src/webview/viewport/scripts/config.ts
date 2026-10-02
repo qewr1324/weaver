@@ -6,6 +6,7 @@ import { setReferenceMode } from "./toolbar";
 import { setShaderMode } from "./toolbar";
 import { toggleSnapGrid, toggleSnapObject } from "./snap";
 import { makeButton, clearGroup } from "./toolbar/buttons";
+import { installGridControls } from "./grid-controls"; // ✨ جدید
 
 export interface ViewportConfig {
 	toolbar: {
@@ -201,4 +202,8 @@ export function buildToolbar(): void {
 	} else {
 		dom.snapGroup.style.display = "none";
 	}
+
+	// ✨ جدید — بعد از ساخت دکمه‌های snap، grid controls رو نصب کن
+	// (چون clearGroup قبلی ممکنه اون‌ها رو پاک کرده باشه)
+	installGridControls();
 }

@@ -19,6 +19,10 @@ import { installPerformanceHud, updatePerformanceHud } from "./performance-hud";
 import { setupFocusHotkey } from "./focus";
 import { drawSelectionBox } from "./selection-box";
 
+// ✨ Grid جدید
+import { buildGrid, DEFAULT_GRID, getGridOptions } from "./grid";
+import { installGridControls } from "./grid-controls";
+
 // ⚠️ موقت — برای debug
 import { installLeakDetector } from "./debug-leak";
 
@@ -60,56 +64,10 @@ function boot(): void {
 	const amb = new BABYLON.HemisphericLight("amb", new BABYLON.Vector3(0, 1, 0), sc);
 	amb.intensity = 0.8;
 
-	// grid — ✅ حالا یه Grid واقعی (نه plane)
-	// با LineSystem ساخته میشه تا هیچ mesh توپری وجود نداشته باشه
-	const gridLines: any[] = [];
-	const gridSize = 100;
-	const halfGrid = gridSize / 2;
-	const step = 1; // هر ۱ واحد
+	// ✅ grid — حالا با ماژول grid.ts ساخته میشه
+	// (buildGrid در installGridControls صدا زده میشه)
 
-	// خطوط موازی با X (یعنی خطوط در جهت Z)
-	for (let i = -halfGrid; i <= halfGrid; i += step) {
-		gridLines.push([new BABYLON.Vector3(-halfGrid, 0, i), new BABYLON.Vector3(halfGrid, 0, i)]);
-	}
-	// خطوط موازی با Z (یعنی خطوط در جهت X)
-	for (let i = -halfGrid; i <= halfGrid; i += step) {
-		gridLines.push([new BABYLON.Vector3(i, 0, -halfGrid), new BABYLON.Vector3(i, 0, halfGrid)]);
-	}
-
-	const grid = BABYLON.MeshBuilder.CreateLineSystem("__grid", { lines: gridLines }, sc);
-	grid.color = new BABYLON.Color3(0.35, 0.38, 0.45); // خطوط کم‌رنگ
-	grid.alpha = 0.6;
-	grid.isPickable = false;
-	grid.alwaysSelectAsActiveMesh = true;
-
-	// ✅ خطوط محورها (X قرمز، Z آبی) روی grid
-	const axisX = BABYLON.MeshBuilder.CreateLines(
-		"__axis_x",
-		{
-			points: [new BABYLON.Vector3(-halfGrid, 0, 0), new BABYLON.Vector3(halfGrid, 0, 0)],
-		},
-		sc,
-	);
-	axisX.color = new BABYLON.Color3(0.8, 0.3, 0.3);
-	axisX.alpha = 0.8;
-	axisX.isPickable = false;
-	axisX.alwaysSelectAsActiveMesh = true;
-
-	const axisZ = BABYLON.MeshBuilder.CreateLines(
-		"__axis_z",
-		{
-			points: [new BABYLON.Vector3(0, 0, -halfGrid), new BABYLON.Vector3(0, 0, halfGrid)],
-		},
-		sc,
-	);
-	axisZ.color = new BABYLON.Color3(0.3, 0.5, 0.8);
-	axisZ.alpha = 0.8;
-	axisZ.isPickable = false;
-	axisZ.alwaysSelectAsActiveMesh = true;
-
-	// ✅ HighlightLayer حذف شد — حالا از outline استفاده می‌کنیم (سبک‌تر)
-	// setHighlightLayer دیگه صدا زده نمیشه، پس highlightLayer null می‌مونه
-	// و highlighting/index.ts از outline API استفاده می‌کنه
+	// ✅ HighlightLayer حذف شد — از outline استفاده می‌کنیم
 
 	// setup
 	setupGizmo();
@@ -118,14 +76,17 @@ function boot(): void {
 	setupPicking();
 	setupLookModeListeners();
 
-	// ✨ فاز ۳ — نصب ماژول‌های جدید
+	// ✨ فاز ۳
 	installCameraPersist();
 	installAxesIndicator();
 	installViewportContextMenu();
 	installPerformanceHud();
 	setupFocusHotkey();
 
-	// ⚠️ موقت — debug leak detector
+	// ✨ grid
+	installGridControls(); // این buildGrid رو هم صدا می‌زنه
+
+	// ⚠️ debug
 	installLeakDetector();
 
 	eng.runRenderLoop(() => {
@@ -134,7 +95,6 @@ function boot(): void {
 		sc.render();
 		dom.fps.textContent = eng.getFps().toFixed(0) + " FPS";
 
-		// ✨ فاز ۳ — آپدیت‌های هر فریم
 		drawAxesIndicator();
 		updatePerformanceHud();
 		drawSelectionBox();
@@ -171,5 +131,4 @@ window.addEventListener("load", () => {
 	setupMessageRouter();
 });
 
-// re-export برای دسترسی آسان از کنسول (اختیاری)
 export { editor, camState, lookState };
