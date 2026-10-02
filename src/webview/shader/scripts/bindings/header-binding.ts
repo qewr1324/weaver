@@ -1,4 +1,5 @@
 // src/webview/shader/scripts/bindings/header-binding.ts
+import { applyPreset } from "../../../../scene/shader/presets";
 import { postToExtension } from "../../../shared/vscode-api";
 import { duplicateShader, exportShaderToJSON, importShaderFromJSON, applyShader, copyToClipboard, readFromClipboard } from "../io";
 import { openPresetsMenu, closeMenu } from "../presets-ui";
@@ -39,7 +40,6 @@ export function bindHeaderInputs(root: HTMLElement, hooks: HeaderHooks): void {
 	const dupBtn = root.querySelector<HTMLButtonElement>("#duplicateBtn");
 	dupBtn?.addEventListener("click", () => {
 		const copy = duplicateShader(shader);
-		// کاربر باید فایل جدید بسازه — پیام به extension
 		postToExtension({
 			type: "shader:duplicate",
 			payload: copy,
@@ -50,12 +50,9 @@ export function bindHeaderInputs(root: HTMLElement, hooks: HeaderHooks): void {
 	const resetBtn = root.querySelector<HTMLButtonElement>("#resetBtn");
 	resetBtn?.addEventListener("click", () => {
 		if (!confirm("Reset shader to default PBR? All channel settings will be lost.")) return;
-		// از presets استفاده کن
-		import("../../../scene/shader/presets").then(({ applyPreset }) => {
-			const next = applyPreset(shader, "standard-pbr");
-			applyShader(next);
-			hooks.onRerender();
-		});
+		const next = applyPreset(shader, "standard-pbr");
+		applyShader(next);
+		hooks.onRerender();
 	});
 
 	// ─── export ───
@@ -81,7 +78,6 @@ export function bindHeaderInputs(root: HTMLElement, hooks: HeaderHooks): void {
 			return;
 		}
 
-		// اسم فعلی رو نگه دار
 		const imported = result.shader;
 		imported.name = shader.name;
 

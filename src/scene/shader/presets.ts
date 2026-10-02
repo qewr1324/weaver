@@ -7,7 +7,6 @@ export interface ShaderPreset {
 	label: string;
 	description: string;
 	icon: string;
-	/** یه تابع که shader فعلی رو با preset پر می‌کنه */
 	apply: (base: ShaderDefinition) => ShaderDefinition;
 }
 
@@ -96,31 +95,11 @@ export const SHADER_PRESETS: ShaderPreset[] = [
 				s.channels[key] = off();
 			}
 			s.render.lighting = "pbr";
-			s.channels.baseColor = {
-				enabled: true,
-				source: "texture",
-				texture: "albedo.png",
-			};
-			s.channels.roughness = {
-				enabled: true,
-				source: "texture",
-				texture: "roughness.png",
-			};
-			s.channels.metallic = {
-				enabled: true,
-				source: "texture",
-				texture: "metallic.png",
-			};
-			s.channels.normal = {
-				enabled: true,
-				source: "texture",
-				texture: "normal.png",
-			};
-			s.channels.ao = {
-				enabled: true,
-				source: "texture",
-				texture: "ao.png",
-			};
+			s.channels.baseColor = { enabled: true, source: "texture", texture: "albedo.png" };
+			s.channels.roughness = { enabled: true, source: "texture", texture: "roughness.png" };
+			s.channels.metallic = { enabled: true, source: "texture", texture: "metallic.png" };
+			s.channels.normal = { enabled: true, source: "texture", texture: "normal.png" };
+			s.channels.ao = { enabled: true, source: "texture", texture: "ao.png" };
 			return s;
 		},
 	},
@@ -135,21 +114,9 @@ export const SHADER_PRESETS: ShaderPreset[] = [
 				s.channels[key] = off();
 			}
 			s.render.lighting = "lit";
-			s.channels.baseColor = {
-				enabled: true,
-				source: "color",
-				color: [1, 0.7, 0.3, 1],
-			};
-			s.channels.roughness = {
-				enabled: true,
-				source: "number",
-				number: 0.9,
-			};
-			s.channels.specular = {
-				enabled: true,
-				source: "number",
-				number: 0.0,
-			};
+			s.channels.baseColor = { enabled: true, source: "color", color: [1, 0.7, 0.3, 1] };
+			s.channels.roughness = { enabled: true, source: "number", number: 0.9 };
+			s.channels.specular = { enabled: true, source: "number", number: 0.0 };
 			return s;
 		},
 	},
@@ -164,16 +131,8 @@ export const SHADER_PRESETS: ShaderPreset[] = [
 				s.channels[key] = off();
 			}
 			s.render.lighting = "unlit";
-			s.channels.baseColor = {
-				enabled: true,
-				source: "color",
-				color: [0.1, 0.1, 0.1, 1],
-			};
-			s.channels.emissive = {
-				enabled: true,
-				source: "color",
-				color: [0.3, 0.8, 1.0, 1],
-			};
+			s.channels.baseColor = { enabled: true, source: "color", color: [0.1, 0.1, 0.1, 1] };
+			s.channels.emissive = { enabled: true, source: "color", color: [0.3, 0.8, 1.0, 1] };
 			return s;
 		},
 	},
@@ -190,26 +149,10 @@ export const SHADER_PRESETS: ShaderPreset[] = [
 			s.render.lighting = "pbr";
 			s.render.alphaMode = "blend";
 			s.render.doubleSided = true;
-			s.channels.baseColor = {
-				enabled: true,
-				source: "color",
-				color: [0.8, 0.9, 1.0, 0.4],
-			};
-			s.channels.roughness = {
-				enabled: true,
-				source: "number",
-				number: 0.05,
-			};
-			s.channels.metallic = {
-				enabled: true,
-				source: "number",
-				number: 0.0,
-			};
-			s.channels.opacity = {
-				enabled: true,
-				source: "number",
-				number: 0.4,
-			};
+			s.channels.baseColor = { enabled: true, source: "color", color: [0.8, 0.9, 1.0, 0.4] };
+			s.channels.roughness = { enabled: true, source: "number", number: 0.05 };
+			s.channels.metallic = { enabled: true, source: "number", number: 0.0 };
+			s.channels.opacity = { enabled: true, source: "number", number: 0.4 };
 			return s;
 		},
 	},
@@ -225,31 +168,11 @@ export const SHADER_PRESETS: ShaderPreset[] = [
 			}
 			s.render.lighting = "pbr";
 			s.render.alphaMode = "blend";
-			s.channels.baseColor = {
-				enabled: true,
-				source: "color",
-				color: [0.1, 0.4, 0.6, 0.85],
-			};
-			s.channels.roughness = {
-				enabled: true,
-				source: "number",
-				number: 0.15,
-			};
-			s.channels.metallic = {
-				enabled: true,
-				source: "number",
-				number: 0.3,
-			};
-			s.channels.normal = {
-				enabled: true,
-				source: "texture",
-				texture: "water_normal.png",
-			};
-			s.channels.opacity = {
-				enabled: true,
-				source: "number",
-				number: 0.85,
-			};
+			s.channels.baseColor = { enabled: true, source: "color", color: [0.1, 0.4, 0.6, 0.85] };
+			s.channels.roughness = { enabled: true, source: "number", number: 0.15 };
+			s.channels.metallic = { enabled: true, source: "number", number: 0.3 };
+			s.channels.normal = { enabled: true, source: "texture", texture: "water_normal.png" };
+			s.channels.opacity = { enabled: true, source: "number", number: 0.85 };
 			return s;
 		},
 	},
@@ -280,14 +203,12 @@ export function applyPreset(current: ShaderDefinition, presetId: string): Shader
 	const preset = SHADER_PRESETS.find((p) => p.id === presetId);
 	if (!preset) return current;
 	const next = preset.apply(current);
-	// اسم و توضیحات و output رو نگه دار
 	next.name = current.name;
 	next.description = current.description;
 	next.output = { ...current.output, targets: [...current.output.targets] };
 	return next;
 }
 
-/** لیست preset ها به صورت آرایه‌ای برای UI */
 export function getPresetList(): Array<{ id: string; label: string; description: string; icon: string }> {
 	return SHADER_PRESETS.map((p) => ({
 		id: p.id,

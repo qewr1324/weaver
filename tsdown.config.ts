@@ -50,6 +50,10 @@ async function buildWebview(t: WebviewTarget): Promise<void> {
 		sourcemap: false,
 		minify: false,
 		logLevel: "warning",
+		// ✅ این خط رو اضافه کن
+		resolveExtensions: [".ts", ".tsx", ".js", ".jsx", ".json"],
+		// ✅ و این خط هم برای اطمینان
+		absWorkingDir: ROOT,
 	});
 
 	await esbuild({

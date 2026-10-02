@@ -1,10 +1,7 @@
 // src/webview/shader/scripts/presets-ui.ts
-import type { ShaderDefinition } from "../../../scene/shader/types";
 import { applyPreset, getPresetList } from "../../../scene/shader/presets";
 import { postToExtension } from "../../shared/vscode-api";
 import { state } from "./state";
-import { renderFull } from "./render";
-import { bindInputs } from "./bindings";
 
 export function mountPresetsMenu(container: HTMLElement, onApply: () => void): void {
 	const presets = getPresetList();
