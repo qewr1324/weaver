@@ -7,9 +7,20 @@ import { Logger } from "../core/logger";
 
 const inspLog = new Logger("Inspector");
 
+/**
+ * ✨ throttle برای pushInspect.
+ * چون selection/transform/mutation می‌تونن پشت سر هم fire بشن،
+ * این جلوی جهش draw calls و rebuild مکرر DOM رو می‌گیره.
+ */
+const PUSH_THROTTLE_MS = 100;
+
 export class InspectorProvider implements vscode.WebviewViewProvider {
 	private view: vscode.WebviewView | null = null;
 	private subs: Array<() => void> = [];
+
+	// ✨ throttle state
+	private pushTimer: ReturnType<typeof setTimeout> | null = null;
+	private pendingPush = false;
 
 	constructor(
 		private readonly context: vscode.ExtensionContext,
@@ -27,12 +38,16 @@ export class InspectorProvider implements vscode.WebviewViewProvider {
 		};
 		view.webview.html = loadWebviewHtml(this.context, view.webview, "inspector");
 
-		const pushInspect = () => {
+		// ✨ تابع اصلی push (بدون throttle)
+		const doPush = () => {
+			if (!this.view) return;
 			const id = this.editor.selection.primary;
 			const node = id ? this.editor.scene.findNode(id) : null;
 			const ids = this.editor.selection.ids;
-			inspLog.debug("pushInspect", { id, hasNode: !!node });
-			view.webview.postMessage({
+
+			inspLog.debug("pushInspect", { id, hasNode: !!node, count: ids.length });
+
+			this.view.webview.postMessage({
 				type: "inspect",
 				payload: node
 					? {
@@ -47,6 +62,27 @@ export class InspectorProvider implements vscode.WebviewViewProvider {
 				count: ids.length,
 				names: ids.map((i) => this.editor.scene.findNode(i)?.name).filter((n): n is string => !!n),
 			});
+		};
+
+		// ✨ pushInspect با throttle + coalesce
+		const pushInspect = () => {
+			if (this.pushTimer) {
+				// یه push در انتظار هست → coalesce
+				this.pendingPush = true;
+				return;
+			}
+
+			// فوراً push کن
+			doPush();
+
+			// بعدش throttle
+			this.pushTimer = setTimeout(() => {
+				this.pushTimer = null;
+				if (this.pendingPush) {
+					this.pendingPush = false;
+					pushInspect();
+				}
+			}, PUSH_THROTTLE_MS);
 		};
 
 		this.subs.push(this.editor.selection.bus.on("changed", pushInspect));
@@ -128,6 +164,12 @@ export class InspectorProvider implements vscode.WebviewViewProvider {
 			inspLog.info("webview disposed");
 			this.disposeSubs();
 			this.view = null;
+			// ✨ پاک‌سازی throttle timer
+			if (this.pushTimer) {
+				clearTimeout(this.pushTimer);
+				this.pushTimer = null;
+			}
+			this.pendingPush = false;
 		});
 
 		pushInspect();

@@ -1,21 +1,14 @@
 // src/webview/viewport/scripts/focus.ts
-// ✨ جدید — Focus دوربین روی selection (F key یا دکمه toolbar)
+// ✨ Focus/Framing — ✅ fix: نصب فقط یک بار + دکمه toolbar
 import { camera, camState, selectedIds, nodeIdToRoot, nodeIdToMesh, scene } from "./state";
 import { applyRotation } from "./camera";
 import { setStatus } from "./look-mode";
 
-/**
- * دوربین رو حول selection متمرکز می‌کنه.
- * - یک selection → focus روی همون
- * - چند selection → focus روی bounding box همه
- * - بدون selection → focus روی کل scene (reset)
- */
 export function focusOnSelection(): void {
 	if (!camera) return;
 	const BABYLON = (window as any).BABYLON;
 	if (!BABYLON) return;
 
-	// جمع‌آوری mesh های انتخاب‌شده
 	const targets: any[] = [];
 	for (const id of selectedIds) {
 		const root = nodeIdToRoot.get(id);
@@ -28,11 +21,9 @@ export function focusOnSelection(): void {
 	let radius: number;
 
 	if (targets.length === 0) {
-		// reset view
 		center = new BABYLON.Vector3(0, 0, 0);
 		radius = 8;
 	} else {
-		// bounding box
 		let min = new BABYLON.Vector3(Infinity, Infinity, Infinity);
 		let max = new BABYLON.Vector3(-Infinity, -Infinity, -Infinity);
 
@@ -43,15 +34,12 @@ export function focusOnSelection(): void {
 			for (const m of all) {
 				if (!m.getBoundingInfo) continue;
 				const bb = m.getBoundingInfo().boundingBox;
-				const wmin = bb.minimumWorld;
-				const wmax = bb.maximumWorld;
-				min = BABYLON.Vector3.Minimize(min, wmin);
-				max = BABYLON.Vector3.Maximize(max, wmax);
+				min = BABYLON.Vector3.Minimize(min, bb.minimumWorld);
+				max = BABYLON.Vector3.Maximize(max, bb.maximumWorld);
 			}
 		}
 
 		if (!Number.isFinite(min.x)) {
-			// fallback
 			center = targets[0].getAbsolutePosition();
 			radius = 4;
 		} else {
@@ -61,22 +49,19 @@ export function focusOnSelection(): void {
 		}
 	}
 
-	// فاصله‌ی مناسب بر اساس fov
 	const fov = camera.fov ?? 0.9;
 	const distance = (radius / Math.tan(fov / 2)) * 1.4;
 
-	// موقعیت جدید دوربین بر اساس direction فعلی
 	const dir = camera.getDirection(BABYLON.Axis.Z).normalize();
 	const newPos = center.subtract(dir.scale(distance));
 
-	// smooth transition (اختیاری - می‌تونی حذف کنی)
 	const startPos = camera.position.clone();
 	const startTime = performance.now();
 	const duration = 250;
 
 	function animate() {
 		const t = Math.min((performance.now() - startTime) / duration, 1);
-		const e = 1 - Math.pow(1 - t, 3); // ease-out-cubic
+		const e = 1 - Math.pow(1 - t, 3);
 		camera.position = BABYLON.Vector3.Lerp(startPos, newPos, e);
 		applyRotation();
 		if (t < 1) requestAnimationFrame(animate);
@@ -86,23 +71,21 @@ export function focusOnSelection(): void {
 	setStatus("● Focused on " + (targets.length || "scene"), true);
 }
 
-/**
- * نصب listener برای کلید F (وقتی در look mode نیستیم).
- * ⚠️ F در look mode برای toggle look-mode استفاده می‌شه، پس conflict داریم.
- * راه‌حل: Focus با `Shift+F` یا دکمه toolbar.
- */
+let installed = false;
+
 export function setupFocusHotkey(): void {
+	if (installed) return;
+	installed = true;
+
 	window.addEventListener(
 		"keydown",
 		(e) => {
-			// Shift+F → focus
 			if (e.code === "KeyF" && e.shiftKey) {
 				e.preventDefault();
 				e.stopPropagation();
 				focusOnSelection();
 				return;
 			}
-			// Home → focus (universal)
 			if (e.code === "Home") {
 				e.preventDefault();
 				focusOnSelection();
@@ -110,4 +93,14 @@ export function setupFocusHotkey(): void {
 		},
 		{ capture: true },
 	);
+
+	// ✅ اتصال دکمه‌ی toolbar (اگه وجود داشت)
+	window.addEventListener("load", () => {
+		setTimeout(() => {
+			const btn = document.getElementById("focusBtn");
+			if (btn) {
+				btn.addEventListener("click", () => focusOnSelection());
+			}
+		}, 100);
+	});
 }

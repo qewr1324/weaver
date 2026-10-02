@@ -1,12 +1,14 @@
 // src/webview/viewport/scripts/axes-indicator.ts
-// ✨ جدید — نمایش محورهای XYZ در گوشه‌ی پایین-راست
+// ✨ XYZ indicator در گوشه — ✅ fix DOM leak (style فقط یک بار)
 import { camera } from "./state";
 
 let canvas: HTMLCanvasElement | null = null;
 let ctx: CanvasRenderingContext2D | null = null;
+let installed = false;
 
 function ensureCanvas(): void {
 	if (canvas) return;
+
 	canvas = document.createElement("canvas");
 	canvas.id = "axes-indicator";
 	canvas.width = 100;
@@ -14,21 +16,24 @@ function ensureCanvas(): void {
 	document.getElementById("canvas-wrap")?.appendChild(canvas);
 	ctx = canvas.getContext("2d");
 
-	// style
-	const style = document.createElement("style");
-	style.textContent = `
-		#axes-indicator {
-			position: absolute;
-			bottom: 12px;
-			right: 12px;
-			width: 90px;
-			height: 90px;
-			pointer-events: none;
-			z-index: 9;
-			opacity: 0.85;
-		}
-	`;
-	document.head.appendChild(style);
+	// ✅ فقط یک بار style اضافه کن
+	if (!document.getElementById("axes-indicator-style")) {
+		const style = document.createElement("style");
+		style.id = "axes-indicator-style";
+		style.textContent = `
+			#axes-indicator {
+				position: absolute;
+				bottom: 12px;
+				right: 12px;
+				width: 90px;
+				height: 90px;
+				pointer-events: none;
+				z-index: 9;
+				opacity: 0.85;
+			}
+		`;
+		document.head.appendChild(style);
+	}
 }
 
 export function drawAxesIndicator(): void {
@@ -45,7 +50,6 @@ export function drawAxesIndicator(): void {
 
 	ctx.clearRect(0, 0, w, h);
 
-	// محاسبه‌ی جهت هر محور در screen space
 	const invView = camera.getViewMatrix().clone().invert();
 	const axes = [
 		{ vec: new BABYLON.Vector3(1, 0, 0), color: "#ff4d4d", label: "X" },
@@ -53,7 +57,6 @@ export function drawAxesIndicator(): void {
 		{ vec: new BABYLON.Vector3(0, 0, 1), color: "#4d9dff", label: "Z" },
 	];
 
-	// depth sort: محورهایی که دورترن اول رسم شن
 	const projected = axes
 		.map((a) => {
 			const v = BABYLON.Vector3.TransformNormal(a.vec, invView);
@@ -65,7 +68,6 @@ export function drawAxesIndicator(): void {
 		const ex = cx + p.sx * len;
 		const ey = cy + p.sy * len;
 
-		// خط
 		ctx.strokeStyle = p.color;
 		ctx.lineWidth = 2;
 		ctx.beginPath();
@@ -73,13 +75,11 @@ export function drawAxesIndicator(): void {
 		ctx.lineTo(ex, ey);
 		ctx.stroke();
 
-		// دایره سر محور
 		ctx.fillStyle = p.color;
 		ctx.beginPath();
 		ctx.arc(ex, ey, 6, 0, Math.PI * 2);
 		ctx.fill();
 
-		// حرف
 		ctx.fillStyle = "#fff";
 		ctx.font = "bold 9px monospace";
 		ctx.textAlign = "center";
@@ -87,7 +87,6 @@ export function drawAxesIndicator(): void {
 		ctx.fillText(p.label, ex, ey);
 	}
 
-	// دایره مرکزی
 	ctx.fillStyle = "#fff";
 	ctx.beginPath();
 	ctx.arc(cx, cy, 3, 0, Math.PI * 2);
@@ -95,5 +94,19 @@ export function drawAxesIndicator(): void {
 }
 
 export function installAxesIndicator(): void {
+	if (installed) return;
+	installed = true;
 	ensureCanvas();
+}
+
+// ✅ پاک‌سازی کامل (اختیاری)
+export function disposeAxesIndicator(): void {
+	if (canvas) {
+		canvas.remove();
+		canvas = null;
+		ctx = null;
+	}
+	const style = document.getElementById("axes-indicator-style");
+	if (style) style.remove();
+	installed = false;
 }

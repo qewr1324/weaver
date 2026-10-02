@@ -1,4 +1,5 @@
 // src/webview/viewport/scripts/gizmo/index.ts
+// ✨ Gizmo — ✅ fix: applyGizmoMode idempotent (no rebuild if mode unchanged)
 import { gizmoManager, selectedIds, nodeIdToRoot, nodeIdToMesh, editor, setGizmoManager, dom } from "../state";
 import { getConfig } from "../config";
 import { setActiveInGroup } from "../toolbar/buttons";
@@ -29,12 +30,34 @@ export function setupGizmo(): void {
 	setGizmoManager(manager);
 }
 
+// ✅ state cache — که بدونیم آخرین بار چی set کردیم
+let lastMode: "move" | "rotate" | "scale" | null = null;
+let lastTargetId: string | null = null;
+let lastRefMode: "world" | "object" | null = null;
+
+/**
+ * ✅ نسخه‌ی idempotent از applyGizmoMode.
+ * اگه mode/target/refMode عوض نشده، هیچ کاری نمی‌کنه.
+ */
 export function applyGizmoMode(): void {
 	if (!gizmoManager) return;
 
 	const mode = editor.transformMode;
-	const target = selectedIds[0] ? nodeIdToRoot.get(selectedIds[0]) || nodeIdToMesh.get(selectedIds[0]) : null;
+	const targetId = selectedIds[0] ?? null;
+	const target = targetId ? nodeIdToRoot.get(targetId) || nodeIdToMesh.get(targetId) : null;
+	const refMode = editor.referenceMode;
 
+	// ✅ اگه هیچی عوض نشده → خروج
+	if (lastMode === mode && lastTargetId === targetId && lastRefMode === refMode) {
+		return;
+	}
+
+	// ✅ آپدیت cache
+	lastMode = mode;
+	lastTargetId = targetId;
+	lastRefMode = refMode;
+
+	// ✅ فقط وقتی mode عوض شده، gizmo enabled رو دست بزن
 	gizmoManager.positionGizmoEnabled = false;
 	gizmoManager.rotationGizmoEnabled = false;
 	gizmoManager.scaleGizmoEnabled = false;
@@ -53,7 +76,7 @@ export function applyGizmoMode(): void {
 	else if (mode === "rotate") gizmoManager.rotationGizmoEnabled = true;
 	else if (mode === "scale") gizmoManager.scaleGizmoEnabled = true;
 
-	const matchObj = editor.referenceMode === "object";
+	const matchObj = refMode === "object";
 
 	if (mode === "move" && gizmoManager.gizmos.positionGizmo) {
 		gizmoManager.gizmos.positionGizmo.updateGizmoRotationToMatchAttachedMesh = matchObj;
@@ -100,4 +123,9 @@ export function detachGizmo(): void {
 	if (gizmoManager.gizmos.positionGizmo) gizmoManager.gizmos.positionGizmo.attachedNode = null;
 	if (gizmoManager.gizmos.rotationGizmo) gizmoManager.gizmos.rotationGizmo.attachedNode = null;
 	if (gizmoManager.gizmos.scaleGizmo) gizmoManager.gizmos.scaleGizmo.attachedNode = null;
+
+	// ✅ reset cache
+	lastMode = null;
+	lastTargetId = null;
+	lastRefMode = null;
 }

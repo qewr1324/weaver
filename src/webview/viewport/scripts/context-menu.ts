@@ -1,5 +1,5 @@
 // src/webview/viewport/scripts/context-menu.ts
-// ✨ جدید — راست‌کلیک روی mesh → menu
+// ✨ راست‌کلیک menu — ✅ fix: نصب فقط یک بار
 import { scene, dom, lookState, selectedIds, meshToNodeId, setSelectedIds } from "./state";
 import { postToExtension } from "./messaging";
 import { refreshHighlights } from "./highlighting";
@@ -16,7 +16,7 @@ interface CtxItem {
 }
 
 let menuEl: HTMLDivElement | null = null;
-let currentNodeId: string | null = null;
+let installed = false;
 
 function ensureMenu(): HTMLDivElement {
 	if (menuEl) return menuEl;
@@ -64,16 +64,17 @@ function showMenu(x: number, y: number, items: CtxItem[]): void {
 }
 
 export function installViewportContextMenu(): void {
+	if (installed) return;
+	installed = true;
+
 	document.addEventListener("click", hideMenu);
 	document.addEventListener("scroll", hideMenu, true);
 
-	// راست‌کلیک روی canvas
 	dom.canvas.addEventListener("contextmenu", (e: MouseEvent) => {
 		e.preventDefault();
 		if (lookState.active) return;
 		if (!scene) return;
 
-		const BABYLON = (window as any).BABYLON;
 		const pick = scene.pick(scene.pointerX, scene.pointerY, (m: any) => {
 			if (!m || !m.isPickable) return false;
 			if (m.name === "__grid") return false;
@@ -81,17 +82,13 @@ export function installViewportContextMenu(): void {
 		});
 
 		const nodeId = pick?.pickedMesh ? meshToNodeId.get(pick.pickedMesh) : null;
-		currentNodeId = nodeId;
 
-		// اگه روی mesh نبود، فقط "Add Object"
 		if (!nodeId) {
 			showMenu(e.clientX, e.clientY, [
 				{
 					label: "Add Object…",
 					icon: "➕",
-					action: () => {
-						dom.addObjWrap.classList.toggle("open");
-					},
+					action: () => dom.addObjWrap.classList.toggle("open"),
 				},
 				{
 					label: "Focus Scene",
@@ -107,18 +104,14 @@ export function installViewportContextMenu(): void {
 			return;
 		}
 
-		// اگه روی mesh بود
 		const isSelected = selectedIds.includes(nodeId);
-
 		const items: CtxItem[] = [];
 
 		if (!isSelected) {
 			items.push({
 				label: "Select",
 				icon: "👆",
-				action: () => {
-					postToExtension({ type: "select", ids: [nodeId] });
-				},
+				action: () => postToExtension({ type: "select", ids: [nodeId] }),
 			});
 		}
 

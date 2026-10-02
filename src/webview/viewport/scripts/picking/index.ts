@@ -1,4 +1,5 @@
 // src/webview/viewport/scripts/picking/index.ts
+// ✨ Picking — ✅ fix: hover فقط وقتی mesh عوض شد، highlight رو آپدیت کن
 import { scene, dom, lookState, selectedIds, hoveredMesh, meshToNodeId, setSelectedIds, setHoveredMesh } from "../state";
 import { refreshHighlights } from "../highlighting";
 import { applyGizmoMode } from "../gizmo";
@@ -8,7 +9,7 @@ export function applySelection(ids: string[]): void {
 	setSelectedIds(ids || []);
 	if (!scene) return;
 	refreshHighlights();
-	applyGizmoMode();
+	applyGizmoMode(); // ✅ حالا idempotent
 }
 
 export function setupPicking(): void {
@@ -32,6 +33,7 @@ export function setupPicking(): void {
 
 		if (newHover !== hoveredMesh) {
 			setHoveredMesh(newHover);
+			// ✅ حالا این فقط یه بار برای هر تغییر hover صدا زده میشه
 			refreshHighlights();
 			dom.canvas.style.cursor = hoveredMesh ? "pointer" : "default";
 		}

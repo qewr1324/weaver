@@ -1,5 +1,5 @@
 // src/webview/viewport/scripts/camera-persist.ts
-// ✨ جدید — ذخیره و بازیابی state دوربین با vscode.setState
+// ✨ Camera persistence — ✅ fix: interval فقط یک بار
 import { camera, camState } from "./state";
 import { applyRotation } from "./camera";
 import { vscode } from "./messaging";
@@ -57,11 +57,14 @@ export function restoreCamera(): void {
 	}
 }
 
+let installed = false;
+
 export function installCameraPersist(): void {
-	// save دوره‌ای
+	if (installed) return;
+	installed = true;
+
+	// ✅ interval فقط یک بار
 	setInterval(save, 3000);
-	// save قبل از بسته شدن
 	window.addEventListener("beforeunload", save);
-	// save روی blur
 	window.addEventListener("blur", save);
 }

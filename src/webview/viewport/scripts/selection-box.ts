@@ -1,29 +1,67 @@
 // src/webview/viewport/scripts/selection-box.ts
-// ✨ جدید — رسم bounding box دور selection (مخصوصاً multi-select)
+// ✨ Selection box — ✅ fix: mesh cache، بدون create/dispose هر فریم
 import { scene, selectedIds, nodeIdToRoot, nodeIdToMesh } from "./state";
 
-let boxMeshes: any[] = [];
+let boxMesh: any = null;
+let boxMat: any = null;
+let lastSelectionKey = "";
 
 export function clearSelectionBox(): void {
-	for (const m of boxMeshes) {
+	if (boxMesh) {
 		try {
-			m.dispose();
+			boxMesh.dispose();
 		} catch {
 			/* ignore */
 		}
+		boxMesh = null;
 	}
-	boxMeshes = [];
+	if (boxMat) {
+		try {
+			boxMat.dispose();
+		} catch {
+			/* ignore */
+		}
+		boxMat = null;
+	}
+	lastSelectionKey = "";
+}
+
+function ensureBox(): any {
+	if (boxMesh && boxMat) return boxMesh;
+
+	const BABYLON = (window as any).BABYLON;
+	if (!BABYLON || !scene) return null;
+
+	boxMesh = BABYLON.MeshBuilder.CreateBox("__sel_box", { size: 1 }, scene);
+	boxMesh.isPickable = false;
+	boxMesh.renderingGroupId = 1;
+	boxMesh.alwaysSelectAsActiveMesh = true;
+	boxMesh.isVisible = false;
+	boxMesh.doNotSyncBoundingInfo = true;
+	// ✅ باعث dispose نشدن geometry در rebuild نشه
+	boxMesh.infiniteDistance = false;
+
+	boxMat = new BABYLON.StandardMaterial("__sel_mat", scene);
+	boxMat.wireframe = true;
+	boxMat.emissiveColor = new BABYLON.Color3(1, 0.6, 0.15);
+	boxMat.disableLighting = true;
+	boxMat.disableDepthWrite = false;
+	boxMesh.material = boxMat;
+
+	return boxMesh;
 }
 
 export function drawSelectionBox(): void {
-	clearSelectionBox();
-	if (!scene || selectedIds.length === 0) return;
+	if (!scene) return;
 
 	const BABYLON = (window as any).BABYLON;
 	if (!BABYLON) return;
 
-	// فقط برای multi-select نمایش بده (برای single، highlight کافیه)
-	if (selectedIds.length < 2) return;
+	if (selectedIds.length < 2) {
+		if (boxMesh) boxMesh.isVisible = false;
+		lastSelectionKey = "";
+		return;
+	}
 
 	const targets: any[] = [];
 	for (const id of selectedIds) {
@@ -33,9 +71,11 @@ export function drawSelectionBox(): void {
 		if (t) targets.push(t);
 	}
 
-	if (targets.length === 0) return;
+	if (targets.length === 0) {
+		if (boxMesh) boxMesh.isVisible = false;
+		return;
+	}
 
-	// bounding box کل
 	let min = new BABYLON.Vector3(Infinity, Infinity, Infinity);
 	let max = new BABYLON.Vector3(-Infinity, -Infinity, -Infinity);
 
@@ -50,32 +90,24 @@ export function drawSelectionBox(): void {
 		}
 	}
 
-	if (!Number.isFinite(min.x)) return;
+	if (!Number.isFinite(min.x)) {
+		if (boxMesh) boxMesh.isVisible = false;
+		return;
+	}
 
 	const center = BABYLON.Vector3.Center(min, max);
 	const size = max.subtract(min);
 
-	// box
-	const box = BABYLON.MeshBuilder.CreateBox(
-		"__sel_box",
-		{
-			width: size.x + 0.1,
-			height: size.y + 0.1,
-			depth: size.z + 0.1,
-		},
-		scene,
-	);
+	// cache key
+	const key = `${selectedIds.join(",")}:${min.x.toFixed(3)},${min.y.toFixed(3)},${min.z.toFixed(3)}:${max.x.toFixed(3)},${max.y.toFixed(3)},${max.z.toFixed(3)}`;
+	if (key === lastSelectionKey) return;
+	lastSelectionKey = key;
+
+	const box = ensureBox();
+	if (!box) return;
 
 	box.position.copyFrom(center);
-	box.isPickable = false;
-	box.renderingGroupId = 1;
-	box.alwaysSelectAsActiveMesh = true;
-
-	const mat = new BABYLON.StandardMaterial("__sel_mat", scene);
-	mat.wireframe = true;
-	mat.emissiveColor = new BABYLON.Color3(1, 0.6, 0.15);
-	mat.disableLighting = true;
-	box.material = mat;
-
-	boxMeshes.push(box);
+	box.scaling.set(size.x + 0.1, size.y + 0.1, size.z + 0.1);
+	box.isVisible = true;
+	box.computeWorldMatrix(true);
 }

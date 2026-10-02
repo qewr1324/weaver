@@ -19,6 +19,9 @@ import { installPerformanceHud, updatePerformanceHud } from "./performance-hud";
 import { setupFocusHotkey } from "./focus";
 import { drawSelectionBox } from "./selection-box";
 
+// ⚠️ موقت — برای debug
+import { installLeakDetector } from "./debug-leak";
+
 function boot(): void {
 	cacheDomRefs();
 
@@ -49,7 +52,7 @@ function boot(): void {
 	(window as any).__weaver_scene = sc;
 
 	applyRotation();
-	restoreCamera(); // ✨ جدید — بازیابی موقعیت دوربین
+	restoreCamera();
 
 	// lights
 	const sun = new BABYLON.DirectionalLight("sun", new BABYLON.Vector3(-0.5, -1, -0.3), sc);
@@ -73,11 +76,9 @@ function boot(): void {
 	}
 	grid.isPickable = false;
 
-	// highlight
-	const hl = new BABYLON.HighlightLayer("__hl", sc);
-	hl.innerGlow = false;
-	hl.outerGlow = true;
-	setHighlightLayer(hl);
+	// ✅ HighlightLayer حذف شد — حالا از outline استفاده می‌کنیم (سبک‌تر)
+	// setHighlightLayer دیگه صدا زده نمیشه، پس highlightLayer null می‌مونه
+	// و highlighting/index.ts از outline API استفاده می‌کنه
 
 	// setup
 	setupGizmo();
@@ -92,6 +93,9 @@ function boot(): void {
 	installViewportContextMenu();
 	installPerformanceHud();
 	setupFocusHotkey();
+
+	// ⚠️ موقت — debug leak detector
+	installLeakDetector();
 
 	eng.runRenderLoop(() => {
 		updateCamera(eng.getDeltaTime() / 1000);
