@@ -736,35 +736,85 @@
       });
     }
 
+    // ⭐ هِلپر مرکزی برای فعال/غیرفعال کردن gizmoها + attach فقط یک gizmo
+    function applyGizmoMode() {
+      if (!gizmoManager) return;
+
+      const mode = editor.transformMode;
+      const target = selectedIds[0]
+        ? (nodeIdToRoot.get(selectedIds[0]) || nodeIdToMesh.get(selectedIds[0]))
+        : null;
+
+      // ۱. اول همه رو غیرفعال کن (این dispose نمی‌کنه، فقط hide)
+      gizmoManager.positionGizmoEnabled = false;
+      gizmoManager.rotationGizmoEnabled = false;
+      gizmoManager.scaleGizmoEnabled = false;
+
+      // ۲. مطمئن شو gizmoهای غیرفعال attach نداشته باشن
+      if (gizmoManager.gizmos.positionGizmo) {
+        gizmoManager.gizmos.positionGizmo.attachedNode = null;
+      }
+      if (gizmoManager.gizmos.rotationGizmo) {
+        gizmoManager.gizmos.rotationGizmo.attachedNode = null;
+      }
+      if (gizmoManager.gizmos.scaleGizmo) {
+        gizmoManager.gizmos.scaleGizmo.attachedNode = null;
+      }
+
+      // ۳. حالا فقط gizmo مناسب رو فعال کن
+      if (mode === 'move') gizmoManager.positionGizmoEnabled = true;
+      else if (mode === 'rotate') gizmoManager.rotationGizmoEnabled = true;
+      else if (mode === 'scale') gizmoManager.scaleGizmoEnabled = true;
+
+      // ۴. تنظیمات reference mode
+      const matchObj = editor.referenceMode === 'object';
+
+      if (mode === 'move' && gizmoManager.gizmos.positionGizmo) {
+        gizmoManager.gizmos.positionGizmo.updateGizmoRotationToMatchAttachedMesh = matchObj;
+        gizmoManager.gizmos.positionGizmo.updateGizmoPositionToMatchAttachedMesh = true;
+      }
+      if (mode === 'rotate' && gizmoManager.gizmos.rotationGizmo) {
+        gizmoManager.gizmos.rotationGizmo.updateGizmoRotationToMatchAttachedMesh = matchObj;
+      }
+      if (mode === 'scale' && gizmoManager.gizmos.scaleGizmo) {
+        gizmoManager.gizmos.scaleGizmo.updateGizmoRotationToMatchAttachedMesh = matchObj;
+      }
+
+      // ۵. فقط gizmo فعال رو به target وصل کن
+      if (target) {
+        if (target.getClassName && target.getClassName() === 'TransformNode') {
+          if (mode === 'move' && gizmoManager.gizmos.positionGizmo) {
+            gizmoManager.gizmos.positionGizmo.attachedNode = target;
+          }
+          if (mode === 'rotate' && gizmoManager.gizmos.rotationGizmo) {
+            gizmoManager.gizmos.rotationGizmo.attachedNode = target;
+          }
+          if (mode === 'scale' && gizmoManager.gizmos.scaleGizmo) {
+            gizmoManager.gizmos.scaleGizmo.attachedNode = target;
+          }
+        } else {
+          gizmoManager.attachToMesh(target);
+        }
+      }
+    }
+
     function setTransformMode(mode) {
       editor.transformMode = mode;
       if (!gizmoManager) return;
-      gizmoManager.positionGizmoEnabled = mode === 'move';
-      gizmoManager.rotationGizmoEnabled = mode === 'rotate';
-      gizmoManager.scaleGizmoEnabled = mode === 'scale';
-
-      if (gizmoManager.gizmos.positionGizmo) {
-        gizmoManager.gizmos.positionGizmo.updateGizmoRotationToMatchAttachedMesh = (editor.referenceMode === 'object');
-        gizmoManager.gizmos.positionGizmo.updateGizmoPositionToMatchAttachedMesh = true;
-      }
-      if (gizmoManager.gizmos.rotationGizmo) {
-        gizmoManager.gizmos.rotationGizmo.updateGizmoRotationToMatchAttachedMesh = (editor.referenceMode === 'object');
-      }
-      if (gizmoManager.gizmos.scaleGizmo) {
-        gizmoManager.gizmos.scaleGizmo.updateGizmoRotationToMatchAttachedMesh = (editor.referenceMode === 'object');
-      }
 
       // ⭐ حالا که gizmo ساخته شده، listener بهش ببند
       setupGizmoSync();
 
-      if (selectedIds.length > 0) attachGizmoTo(selectedIds[0]);
+      // ⭐ فعال/غیرفعال + attach فقط یک gizmo
+      applyGizmoMode();
+
       setActiveInGroup(transformGroup, mode);
       setStatus('● Transform: ' + mode, true);
     }
 
     function setReferenceMode(mode) {
       editor.referenceMode = mode;
-      setTransformMode(editor.transformMode);
+      applyGizmoMode();
       setActiveInGroup(refGroup, mode);
       setStatus('● Space: ' + mode, true);
     }
@@ -894,25 +944,12 @@
     }
 
     function attachGizmoTo(nodeId) {
-      if (!gizmoManager) return;
-      const target = nodeIdToRoot.get(nodeId) || nodeIdToMesh.get(nodeId);
-      if (!target) {
-        gizmoManager.attachToMesh(null);
-        return;
-      }
-
-      if (target.getClassName && target.getClassName() === 'TransformNode') {
-        if (gizmoManager.gizmos.positionGizmo) gizmoManager.gizmos.positionGizmo.attachedNode = target;
-        if (gizmoManager.gizmos.rotationGizmo) gizmoManager.gizmos.rotationGizmo.attachedNode = target;
-        if (gizmoManager.gizmos.scaleGizmo) gizmoManager.gizmos.scaleGizmo.attachedNode = target;
-      } else {
-        gizmoManager.attachToMesh(target);
-      }
+      // ⭐ حالا از applyGizmoMode استفاده می‌کنه
+      applyGizmoMode();
     }
 
     function detachGizmo() {
       if (!gizmoManager) return;
-      gizmoManager.attachToMesh(null);
       if (gizmoManager.gizmos.positionGizmo) gizmoManager.gizmos.positionGizmo.attachedNode = null;
       if (gizmoManager.gizmos.rotationGizmo) gizmoManager.gizmos.rotationGizmo.attachedNode = null;
       if (gizmoManager.gizmos.scaleGizmo) gizmoManager.gizmos.scaleGizmo.attachedNode = null;
@@ -1271,8 +1308,7 @@
       selectedIds = ids || [];
       if (!highlightLayer) return;
       refreshHighlights();
-      if (selectedIds.length > 0) attachGizmoTo(selectedIds[0]);
-      else detachGizmo();
+      applyGizmoMode();
     }
 
     function refreshHighlights() {
