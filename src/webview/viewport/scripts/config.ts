@@ -41,6 +41,7 @@ export interface ViewportConfig {
 }
 
 let config: ViewportConfig | null = null;
+let configAppliedOnce = false;
 
 export function getConfig(): ViewportConfig | null {
 	return config;
@@ -100,12 +101,17 @@ export function applySceneConfig(raw: any): void {
 	camState.sprintMult = config.camera.sprintMult;
 	camState.slowMult = config.camera.slowMult;
 
-	editor.transformMode = config.toolbar.transformMode || "move";
-	editor.referenceMode = config.toolbar.referenceMode || "world";
-	editor.shaderMode = config.toolbar.shaderMode || "solid";
-	editor.snapGrid = config.toolbar.snapGrid ?? false;
-	editor.snapGridSize = config.toolbar.snapGridSize ?? 0.5;
-	editor.snapObject = config.toolbar.snapObject ?? false;
+	// ⭐ مهم: فقط بار اول editor modeها رو از config ست کن
+	//    بعد از اون، کاربر ممکنه وسط کار عوض کرده باشه، پس overwrite نکن
+	if (!configAppliedOnce) {
+		editor.transformMode = config.toolbar.transformMode || "move";
+		editor.referenceMode = config.toolbar.referenceMode || "world";
+		editor.shaderMode = config.toolbar.shaderMode || "solid";
+		editor.snapGrid = config.toolbar.snapGrid ?? false;
+		editor.snapGridSize = config.toolbar.snapGridSize ?? 0.5;
+		editor.snapObject = config.toolbar.snapObject ?? false;
+		configAppliedOnce = true;
+	}
 
 	if (gizmoManager) {
 		const ratio = config.gizmo.scaleRatio;

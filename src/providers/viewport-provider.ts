@@ -57,8 +57,11 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 			});
 		};
 
+		// ⭐ اگه خودمون فایل رو می‌نویسیم، skip کن
+		//    این جلوی rebuild ناخواسته scene و reset شدن gizmo رو می‌گیره
 		const changeSub = vscode.workspace.onDidChangeTextDocument((e) => {
 			if (e.document.uri.toString() !== uriStr) return;
+			if (doc.writing) return;
 			doc.applyFromText(e.document.getText());
 			sendFullScene();
 		});
@@ -71,7 +74,7 @@ export class WeaverViewportProvider implements vscode.CustomTextEditorProvider {
 		const onNodeRemoved = doc.scene.bus.on("node:removed", () => sendFullScene());
 		const onSceneReloaded = doc.scene.bus.on("scene:reloaded", () => sendFullScene());
 
-		// ⭐ transform از scene bus — echo از viewport رو skip کن
+		// transform از scene bus — echo از viewport رو skip کن
 		const transformSub = doc.scene.bus.on("transform:changed", (payload) => {
 			if (payload.source === "viewport") return;
 			post({ type: "transform:apply", payload });
