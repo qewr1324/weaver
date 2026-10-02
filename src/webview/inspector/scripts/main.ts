@@ -1,11 +1,15 @@
 // src/webview/inspector/scripts/main.ts
 import { mustById } from "../../shared/dom";
 import { bindInputs } from "./bindings";
+import { installInspectorEnhancements } from "./installer";
 import { Messaging } from "./messaging";
 import { renderFull, updateTransformValuesOnly } from "./render";
 import { setSelection, state } from "./state";
 
 const root = mustById("root");
+
+// ✨ جدید — نصب یکجای listener های delegated (یک بار برای همیشه)
+installInspectorEnhancements(root);
 
 // ── رندر اولیه (empty) ──
 renderFull(root, state, {

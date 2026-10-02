@@ -1,6 +1,6 @@
 /* src/webview/inspector/styles/base.css */
 :root {
-    color-scheme: dark;
+    color-scheme: dark light;
 }
 
 * {
@@ -11,11 +11,55 @@ html,
 body {
     margin: 0;
     padding: 0;
-    background: #0D1117;
-    color: #C9D1D9;
-    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+    color: var(--vscode-foreground);
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size, 13px);
+    font-weight: var(--vscode-font-weight, normal);
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
 }
 
 #root {
     display: block;
+    padding: 0;
+}
+
+input,
+select,
+button,
+textarea {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+}
+
+/* selection color مثل VS Code */
+::selection {
+    background: var(--vscode-editor-selectionBackground);
+    color: var(--vscode-editor-selectionForeground, inherit);
+}
+
+/* scrollbar مثل VS Code */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--vscode-scrollbarSlider-background);
+    border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--vscode-scrollbarSlider-hoverBackground);
+}
+
+::-webkit-scrollbar-thumb:active {
+    background: var(--vscode-scrollbarSlider-activeBackground);
 }

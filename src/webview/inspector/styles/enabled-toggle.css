@@ -1,0 +1,51 @@
+/* src/webview/inspector/styles/enabled-toggle.css */
+.comp-enabled-wrap {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 4px;
+    cursor: pointer;
+    position: relative;
+    width: 12px;
+    height: 12px;
+}
+
+.comp-enabled-wrap input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    margin: 0;
+    border: 1px solid var(--vscode-checkbox-border, var(--wv-border-soft));
+    border-radius: var(--wv-radius, 2px);
+    background: var(--vscode-checkbox-background);
+    cursor: pointer;
+    position: relative;
+    transition: background .1s, border-color .1s;
+    outline: none;
+}
+
+.comp-enabled-wrap input[type="checkbox"]:hover {
+    border-color: var(--wv-accent);
+}
+
+.comp-enabled-wrap input[type="checkbox"]:checked {
+    background: var(--vscode-checkbox-selectBackground, var(--wv-accent));
+    border-color: var(--vscode-checkbox-selectBorder, var(--wv-accent));
+}
+
+.comp-enabled-wrap input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: 0;
+    width: 4px;
+    height: 8px;
+    border: solid var(--vscode-checkbox-foreground, #fff);
+    border-width: 0 1.5px 1.5px 0;
+    transform: rotate(45deg);
+}
+
+.comp-enabled-wrap input[type="checkbox"]:focus-visible {
+    outline: 1px solid var(--wv-border-focus);
+    outline-offset: 1px;
+}

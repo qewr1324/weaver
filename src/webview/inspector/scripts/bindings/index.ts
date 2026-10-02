@@ -4,6 +4,7 @@ import { state } from "../state";
 import { bindComponentInputs } from "./component-binding";
 import { bindFilterInput } from "./filter-binding";
 import { bindNameInput } from "./name-binding";
+import { bindResetAll } from "./reset-all-binding";
 import { bindTransformInputs } from "./transform-binding";
 
 export interface BindContext {
@@ -12,6 +13,7 @@ export interface BindContext {
 
 export function bindInputs(ctx: BindContext): void {
 	bindTransformInputs(ctx.root);
+	bindResetAll(ctx.root); // ✨ جدید
 	bindComponentInputs(ctx.root);
 	bindNameInput();
 	bindFilterInput({

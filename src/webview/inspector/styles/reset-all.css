@@ -1,0 +1,36 @@
+/* src/webview/inspector/styles/reset-all.css */
+.reset-all-wrap {
+    padding: 4px var(--wv-row-pad-x, 8px);
+    border-bottom: 1px solid var(--wv-border-soft);
+    background: var(--wv-bg);
+    display: flex;
+    justify-content: flex-end;
+    min-height: 22px;
+}
+
+.reset-all-btn {
+    background: var(--wv-btn-secondary-bg);
+    border: 1px solid transparent;
+    color: var(--wv-btn-secondary-fg);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: var(--wv-radius, 2px);
+    cursor: pointer;
+    font-family: inherit;
+    transition: background .1s;
+    outline: none;
+}
+
+.reset-all-btn:hover {
+    background: var(--wv-btn-secondary-bg-hover);
+}
+
+.reset-all-btn:focus-visible {
+    outline: 1px solid var(--wv-border-focus);
+    outline-offset: -1px;
+}
+
+.reset-all-btn:active {
+    background: var(--wv-btn-bg);
+    color: var(--wv-btn-fg);
+}

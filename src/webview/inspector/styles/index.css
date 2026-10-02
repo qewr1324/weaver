@@ -1,5 +1,11 @@
 /* src/webview/inspector/styles/index.css */
+@import "./theme.css";
 @import "./base.css";
 @import "./inputs.css";
 @import "./components.css";
 @import "./badges.css";
+@import "./reset-all.css";
+@import "./pin-lock.css";
+@import "./context-menu.css";
+@import "./collapse.css";
+@import "./enabled-toggle.css";

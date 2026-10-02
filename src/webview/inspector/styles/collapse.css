@@ -1,0 +1,23 @@
+/* src/webview/inspector/styles/collapse.css */
+.comp.collapsed .comp-body {
+    display: none;
+}
+
+.comp-head[data-comp-id] {
+    cursor: pointer;
+}
+
+.comp-head[data-comp-id]::before {
+    content: "▾";
+    display: inline-block;
+    font-size: 8px;
+    color: var(--wv-fg-muted);
+    transition: transform .1s;
+    width: 10px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.comp.collapsed .comp-head[data-comp-id]::before {
+    transform: rotate(-90deg);
+}

@@ -6,8 +6,10 @@ import { renderComponents } from "./components";
 import { renderEmpty } from "./empty";
 import { renderFilter } from "./filter";
 import { renderMultiBadge, renderNameHeader } from "./header";
+import { renderResetAll } from "./reset-all";
 import { renderTransform } from "./transform";
 import { quatToEuler } from "../utils/quaternion";
+import { afterRender } from "../post-render";
 
 export interface RenderHooks {
 	onBind: () => void;
@@ -32,11 +34,13 @@ export function renderFull(root: HTMLElement, state: InspectorState, hooks: Rend
 	html += renderNameHeader(state);
 	html += renderFilter(state);
 	html += renderTransform(state);
+	html += renderResetAll(state); // ✨ جدید
 	html += renderComponents(state);
 
 	root.innerHTML = html;
 	registerLiveDot(document.getElementById("liveDot"));
 	hooks.onBind();
+	afterRender(root); // ✨ جدید
 }
 
 export function updateTransformValuesOnly(root: HTMLElement, state: InspectorState): void {

@@ -1,0 +1,32 @@
+/* src/webview/inspector/styles/context-menu.css */
+.wv-ctx-menu {
+    position: fixed;
+    z-index: 9999;
+    background: var(--wv-bg-elevated);
+    border: 1px solid var(--wv-border-soft);
+    border-radius: var(--wv-radius, 2px);
+    padding: 4px 0;
+    min-width: 160px;
+    box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size, 13px);
+}
+
+.wv-ctx-item {
+    padding: 4px 14px;
+    color: var(--wv-fg);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    line-height: 1.4;
+}
+
+.wv-ctx-item:hover {
+    background: var(--wv-list-active);
+    color: var(--wv-list-active-fg);
+}
+
+.wv-ctx-item.danger:hover {
+    background: var(--vscode-inputValidation-errorBackground, #c53030);
+    color: #fff;
+}

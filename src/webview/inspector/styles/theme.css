@@ -1,0 +1,68 @@
+/* src/webview/inspector/styles/theme.css */
+/* ✨ Alias های معنایی روی VS Code theme variables */
+
+:root {
+    /* Accent = رنگ focus خود VS Code */
+    --wv-accent: var(--vscode-focusBorder);
+    --wv-accent-fg: var(--vscode-button-foreground);
+
+    /* Backgrounds */
+    --wv-bg: var(--vscode-sideBar-background, var(--vscode-editor-background));
+    --wv-bg-elevated: var(--vscode-editorWidget-background);
+    --wv-bg-input: var(--vscode-input-background);
+    --wv-bg-hover: var(--vscode-list-hoverBackground);
+    --wv-bg-active: var(--vscode-list-activeSelectionBackground);
+    --wv-bg-selected: var(--vscode-list-inactiveSelectionBackground);
+    --wv-bg-focus: var(--vscode-list-focusBackground);
+
+    /* Foreground */
+    --wv-fg: var(--vscode-foreground);
+    --wv-fg-active: var(--vscode-list-activeSelectionForeground);
+    --wv-fg-muted: var(--vscode-descriptionForeground);
+    --wv-fg-disabled: var(--vscode-disabledForeground);
+
+    /* Borders */
+    --wv-border: var(--vscode-panel-border, var(--vscode-widget-border));
+    --wv-border-soft: var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+    --wv-border-input: var(--vscode-input-border, transparent);
+    --wv-border-focus: var(--vscode-focusBorder);
+
+    /* Status */
+    --wv-live-ok: var(--vscode-testing-iconPassed, #3fb950);
+    --wv-live-ping: var(--vscode-editorWarning-foreground, #d29922);
+    --wv-warn: var(--vscode-editorWarning-foreground, #d29922);
+    --wv-error: var(--vscode-errorForeground, #f85149);
+
+    /* Badge */
+    --wv-badge-bg: var(--vscode-badge-background);
+    --wv-badge-fg: var(--vscode-badge-foreground);
+
+    /* Button */
+    --wv-btn-bg: var(--vscode-button-background);
+    --wv-btn-fg: var(--vscode-button-foreground);
+    --wv-btn-bg-hover: var(--vscode-button-hoverBackground);
+    --wv-btn-secondary-bg: var(--vscode-button-secondaryBackground);
+    --wv-btn-secondary-fg: var(--vscode-button-secondaryForeground);
+    --wv-btn-secondary-bg-hover: var(--vscode-button-secondaryHoverBackground);
+
+    /* Input */
+    --wv-input-bg: var(--vscode-input-background);
+    --wv-input-fg: var(--vscode-input-foreground);
+    --wv-input-border: var(--vscode-input-border, transparent);
+    --wv-input-placeholder: var(--vscode-input-placeholderForeground);
+    --wv-input-option-bg: var(--vscode-inputOption-activeBackground);
+    --wv-input-option-fg: var(--vscode-inputOption-activeForeground);
+    --wv-input-option-border: var(--vscode-inputOption-activeBorder);
+
+    /* List (برای row ها) */
+    --wv-list-hover: var(--vscode-list-hoverBackground);
+    --wv-list-active: var(--vscode-list-activeSelectionBackground);
+    --wv-list-active-fg: var(--vscode-list-activeSelectionForeground);
+    --wv-list-focus-outline: var(--vscode-list-focusOutline);
+
+    /* Sizing مثل hierarchy */
+    --wv-row-h: 22px;
+    --wv-row-pad-x: 8px;
+    --wv-radius: 2px;
+    --wv-radius-lg: 3px;
+}

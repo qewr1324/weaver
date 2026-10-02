@@ -1,38 +1,42 @@
 /* src/webview/inspector/styles/badges.css */
 .empty {
-    padding: 32px 12px;
+    padding: 24px 12px;
     text-align: center;
-    color: #6E7681;
-    font-style: italic;
+    color: var(--wv-fg-muted);
+    font-style: normal;
     line-height: 1.8;
+    font-size: 12px;
 }
 
 .empty kbd {
     display: inline-block;
-    padding: 1px 6px;
-    border: 1px solid #30363D;
-    border-radius: 3px;
-    background: #161B22;
-    color: #C9D1D9;
+    padding: 1px 5px;
+    border: 1px solid var(--wv-border-soft);
+    border-radius: var(--wv-radius, 2px);
+    background: var(--vscode-keybindingLabel-background);
+    color: var(--vscode-keybindingLabel-foreground);
     font-size: 10px;
     margin: 0 2px;
+    font-family: var(--vscode-editor-font-family, monospace);
 }
 
 .multi-badge {
-    margin: 8px;
-    padding: 6px 10px;
-    background: #6B46C1;
-    color: white;
-    border-radius: 4px;
-    text-align: center;
+    margin: 0;
+    padding: 4px var(--wv-row-pad-x, 8px);
+    background: var(--wv-badge-bg);
+    color: var(--wv-badge-fg);
+    border-bottom: 1px solid var(--wv-border-soft);
+    text-align: left;
     font-size: 11px;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 6px;
+    min-height: 22px;
 }
 
 .multi-badge .list {
-    color: #E9D5FF;
+    color: var(--wv-badge-fg);
     font-size: 10px;
     opacity: 0.85;
     max-width: 60%;
@@ -46,10 +50,9 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #22c55e;
-    margin-left: 4px;
-    box-shadow: 0 0 4px #22c55e88;
-    animation: pulse 1.5s ease-in-out infinite;
+    background: var(--wv-live-ok);
+    margin-left: 6px;
+    transition: background .1s;
 }
 
 @keyframes pulse {
@@ -60,6 +63,6 @@
     }
 
     50% {
-        opacity: 0.4;
+        opacity: 0.5;
     }
 }

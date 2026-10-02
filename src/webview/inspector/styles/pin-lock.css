@@ -1,0 +1,25 @@
+/* src/webview/inspector/styles/pin-lock.css */
+.row label.pin-btn {
+    width: 16px;
+    min-width: 16px;
+    font-size: 10px;
+    color: var(--wv-fg-disabled);
+    cursor: pointer;
+    text-align: center;
+    transition: color .1s;
+    opacity: 0.5;
+}
+
+.row label.pin-btn:hover {
+    color: var(--wv-warn);
+    opacity: 1;
+}
+
+.row label.pin-btn.pinned {
+    color: var(--wv-accent);
+    opacity: 1;
+}
+
+.row.pinned-row {
+    background: var(--wv-list-focus);
+}
