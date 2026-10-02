@@ -3,7 +3,8 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    z-index: 8;
+    z-index: 11;
+    /* ✅ بالاتر از ruler (9) و corner (10) */
     display: none;
 }
 
@@ -20,7 +21,8 @@
     height: 20px;
     transform: translate(-50%, -50%);
     pointer-events: none;
-    z-index: 9;
+    z-index: 12;
+    /* ✅ بالاتر از look-overlay */
     display: none;
 }
 
@@ -30,7 +32,7 @@
 
 #crosshair::before,
 #crosshair::after {
-    content: '';
+    content: "";
     position: absolute;
     background: #FFA500;
     box-shadow: 0 0 4px #FFA50088;

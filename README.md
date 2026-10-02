@@ -17,12 +17,18 @@
   <hr>
   <hr>
 
-  <p>Step 2...</p>
+  <p>...</p>
   <img src="./media/example-2.png" />
 
   <hr>
   <hr>
 
-  <p>Step 3...</p>
+  <p>...</p>
   <img src="./media/example-3.png" />
+
+  <hr>
+  <hr>
+
+  <p>...</p>
+  <img src="./media/example-4.png" />
 </div>
