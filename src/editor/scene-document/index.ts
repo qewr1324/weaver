@@ -22,6 +22,7 @@ export class SceneDocument extends Disposable {
 		changed: void;
 		"dirty:changed": boolean;
 		"external:changed": void;
+		"scene:reloaded": void;
 	}>();
 
 	constructor(
@@ -32,11 +33,18 @@ export class SceneDocument extends Disposable {
 		this._scene = initial;
 		this.register(this.commands);
 
+		// ─── هر تغییر در scene → dirty + debounced flush ───
 		this._scene.bus.on("scene:changed", () => {
 			if (this._applyingRemote) return;
 			this.markDirty(true);
 			this.bus.emit("changed", undefined);
 			this.scheduleFlush();
+		});
+
+		// ─── reload از فایل → dirty پاک ───
+		this._scene.bus.on("scene:reloaded", () => {
+			if (this._applyingRemote) return;
+			this.bus.emit("changed", undefined);
 		});
 	}
 
@@ -58,15 +66,22 @@ export class SceneDocument extends Disposable {
 		this.bus.emit("dirty:changed", value);
 	}
 
+	/**
+	 * از فایل → Scene.
+	 * مهم: event `scene:changed` رو fire **نمی‌کنه** (چون از فایل اومده).
+	 */
 	applyFromText(text: string): void {
-		if (this._applyingRemote) return;
+		if (this._applyingRemote) {
+			this.log.debug("applyFromText skipped (applyingRemote)");
+			return;
+		}
 
 		try {
-			const scene = Serializer.deserialize(text);
+			const incoming = Serializer.deserialize(text);
 
 			this._applyingRemote = true;
 			try {
-				this._scene.replaceContents(scene);
+				this._scene.replaceContents(incoming);
 			} finally {
 				queueMicrotask(() => {
 					this._applyingRemote = false;
@@ -75,6 +90,7 @@ export class SceneDocument extends Disposable {
 
 			this.markDirty(false);
 			this.bus.emit("external:changed", undefined);
+			this.bus.emit("scene:reloaded", undefined);
 			this.bus.emit("changed", undefined);
 		} catch (err) {
 			this.log.error("applyFromText failed", err);
@@ -119,9 +135,11 @@ export class SceneDocument extends Disposable {
 				await doc.save();
 			}
 		} finally {
-			queueMicrotask(() => {
+			// ⭐ به جای queueMicrotask از setTimeout(150) استفاده کن
+			// تا event onDidChangeTextDocument فرصت fire شدن داشته باشه
+			setTimeout(() => {
 				this._applyingRemote = false;
-			});
+			}, 150);
 		}
 
 		this.markDirty(false);

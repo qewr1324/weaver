@@ -1,3 +1,4 @@
+// src/scene/scene/index.ts
 import { Disposable } from "../../core/disposable";
 import { EventBus } from "../../core/event-bus";
 import { deepMerge } from "../../config/deep-merge";
@@ -13,6 +14,16 @@ export interface SceneData {
 	root: NodeData;
 }
 
+export interface TransformChangedPayload {
+	nodeId: string;
+	transform: {
+		position: { x: number; y: number; z: number };
+		rotation: { x: number; y: number; z: number; w: number };
+		scale: { x: number; y: number; z: number };
+	};
+	source: "viewport" | "inspector" | "undo" | "load";
+}
+
 export class Scene extends Disposable {
 	readonly root: Node;
 	name: string;
@@ -23,6 +34,8 @@ export class Scene extends Disposable {
 		"node:removed": Node;
 		"node:changed": Node;
 		"scene:changed": void;
+		"scene:reloaded": void;
+		"transform:changed": TransformChangedPayload;
 	}>();
 
 	constructor(name = "Untitled Scene", config: Partial<WeaverConfig> = {}) {
@@ -75,24 +88,22 @@ export class Scene extends Disposable {
 		return deepMerge(global, this.config);
 	}
 
-	/**
-	 * محتویات این Scene رو با یه Scene دیگه جایگزین کن،
-	 * بدون اینکه object خود `Scene` عوض بشه.
-	 * برای sync از فایل → editor استفاده می‌شه.
-	 */
 	replaceContents(other: Scene): void {
-		// پاک کردن children فعلی
+		const oldChildren = [...this.root.children];
 		this.root.children.length = 0;
+		for (const old of oldChildren) {
+			old.parent = null;
+		}
 
 		this.name = other.name;
 		this.config = other.config;
 
-		// کپی کردن children از scene دیگه (با clone تا objectها مستقل باشن)
 		for (const child of other.root.children) {
 			const cloned = Node.fromJSON(child.toJSON());
 			this.root.addChild(cloned);
 		}
 
+		this.bus.emit("scene:reloaded", undefined);
 		this.bus.emit("scene:changed", undefined);
 	}
 

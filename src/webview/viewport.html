@@ -31,7 +31,6 @@
       flex-direction: column;
     }
 
-    /* ═══════════ TOOLBAR ═══════════ */
     #toolbar {
       flex: 0 0 auto;
       display: flex;
@@ -158,7 +157,6 @@
       text-align: center;
     }
 
-    /* ═══════════ CANVAS AREA ═══════════ */
     #canvas-wrap {
       position: relative;
       flex: 1 1 auto;
@@ -178,7 +176,6 @@
       cursor: none;
     }
 
-    /* ═══════════ OVERLAYS ═══════════ */
     #hud {
       position: absolute;
       top: 8px;
@@ -256,7 +253,6 @@
       background: #1a1f2e;
     }
 
-    /* ─── Look Mode Overlay ─── */
     #look-overlay {
       position: absolute;
       inset: 0;
@@ -270,7 +266,6 @@
       box-shadow: inset 0 0 0 2px #FFA500;
     }
 
-    /* ─── Crosshair ─── */
     #crosshair {
       position: absolute;
       top: 50%;
@@ -315,7 +310,6 @@
 
 <body>
   <div id="viewport">
-    <!-- ═══════════ TOOLBAR ═══════════ -->
     <div id="toolbar">
       <div class="tb-group">
         <div class="tb-dd-wrap" id="addObjWrap">
@@ -351,7 +345,6 @@
       </div>
     </div>
 
-    <!-- ═══════════ CANVAS ═══════════ -->
     <div id="canvas-wrap">
       <div id="look-overlay"></div>
       <div id="crosshair"></div>
@@ -376,7 +369,6 @@
   <script nonce="{{nonce}}">
     const vscode = acquireVsCodeApi();
 
-    // ═══════════ DOM ═══════════
     const canvas = document.getElementById('renderCanvas');
     const hud = document.getElementById('hud');
     const hudLookKey = document.getElementById('hudLookKey');
@@ -395,14 +387,15 @@
     const lookOverlay = document.getElementById('look-overlay');
     const crosshair = document.getElementById('crosshair');
 
-    // ═══════════ STATE ═══════════
-    let suppressGizmoSync = false;
     let engine, scene, camera, highlightLayer, gizmoManager;
     const nodeIdToMesh = new Map();
+    const nodeIdToRoot = new Map();
+    const rootToNodeId = new Map();
     const meshToNodeId = new WeakMap();
     let selectedIds = [];
     let hoveredMesh = null;
 
+    let suppressGizmoSync = false;
     let config = null;
 
     const editor = {
@@ -427,7 +420,6 @@
     let shiftHeld = false;
     let spaceHeld = false;
 
-    // ─── Look Mode با Pointer Lock ───
     let lookMode = false;
     let pointerLocked = false;
     const MOUSE_SENS = 0.0035;
@@ -453,7 +445,6 @@
       hudLookKey.classList.add('on');
       setStatus('● LOOK MODE — press F to exit', true, true);
 
-      // درخواست pointer lock
       const p = canvas.requestPointerLock?.({ unadjustedMovement: true });
       if (p && p.catch) {
         p.catch(() => canvas.requestPointerLock());
@@ -472,7 +463,6 @@
       hudLookKey.classList.remove('on');
       setStatus('● F to look · WASD to move', false, false);
 
-      // ─── پاک کردن کلیدها ───
       keys.clear();
       shiftHeld = false;
       spaceHeld = false;
@@ -488,12 +478,8 @@
       else enterLookMode();
     }
 
-    // ─── Pointer Lock events ───
     document.addEventListener('pointerlockchange', () => {
       pointerLocked = document.pointerLockElement === canvas;
-      log('pointerlock', pointerLocked);
-
-      // اگه کاربر با Esc خود مرورگر خارج شد، lookMode رو هم ببند
       if (lookMode && !pointerLocked) {
         exitLookMode();
       }
@@ -503,7 +489,6 @@
       log('pointerlock error');
     });
 
-    // ═══════════ MESSAGES ═══════════
     window.addEventListener('message', (e) => {
       const msg = e.data;
 
@@ -515,12 +500,7 @@
       } else if (msg.type === 'selection:update') {
         applySelection(msg.ids || []);
       } else if (msg.type === 'transform:apply') {
-        // ─── ⭐ از inspector اومده: mesh رو جابه‌جا کن بدون rebuild ───
         applyTransformFromInspector(msg.payload);
-      } else if (msg.type === 'rename:apply') {
-        // rename رو توی HUD یا هر جا خواستی نشون بده (اختیاری)
-        const { nodeId, name } = msg.payload;
-        console.log('[Weaver] renamed', nodeId, '→', name);
       } else if (msg.type === 'config:resolved') {
         applySceneConfig(msg.payload);
       } else if (msg.type === 'error') {
@@ -528,35 +508,6 @@
       }
     });
 
-    // ─── ⭐ اعمال transform از inspector ───
-    function applyTransformFromInspector(payload) {
-      const { nodeId, transform } = payload;
-      const mesh = nodeIdToMesh.get(nodeId);
-      if (!mesh) return;
-
-      // جلوگیری از fire شدن gizmo onDragEnd
-      suppressGizmoSync = true;
-      try {
-        mesh.position.set(transform.position.x, transform.position.y, transform.position.z);
-        mesh.rotationQuaternion = new BABYLON.Quaternion(
-          transform.rotation.x,
-          transform.rotation.y,
-          transform.rotation.z,
-          transform.rotation.w,
-        );
-        mesh.scaling.set(transform.scale.x, transform.scale.y, transform.scale.z);
-
-        // اگه gizmo به این mesh وصله، موقعیتش رو آپدیت کن
-        if (gizmoManager && gizmoManager.attachedMesh === mesh) {
-          // Babylon خودش موقع drag بعدی sync می‌کنه
-        }
-      } finally {
-        // یه tick صبر کن
-        setTimeout(() => { suppressGizmoSync = false; }, 0);
-      }
-    }
-
-    // ═══════════ INIT ═══════════
     window.addEventListener('load', () => {
       if (typeof BABYLON === 'undefined') {
         loading.textContent = 'Failed to load Babylon';
@@ -569,7 +520,7 @@
       scene = new BABYLON.Scene(engine);
       scene.clearColor = new BABYLON.Color4(0.15, 0.18, 0.24, 1);
 
-      camera = new BABYLON.FreeCamera('cam', new BABYLON.Vector3(8, 6, -10), scene);
+      camera = new BABYLON.FreeCamera('__editor_camera', new BABYLON.Vector3(8, 6, -10), scene);
       camera.minZ = 0.05;
       camera.maxZ = 5000;
       camera.fov = 0.9;
@@ -618,7 +569,6 @@
       vscode.postMessage({ type: 'ready' });
     });
 
-    // ═══════════ CONFIG ═══════════
     const DEFAULT_CONFIG = {
       toolbar: {
         enabled: { addObjects: true, transformModes: true, referenceModes: true, shaderModes: true, snap: true },
@@ -680,7 +630,6 @@
       buildToolbar();
     }
 
-    // ═══════════ TOOLBAR ═══════════
     function clearGroup(group, keepLabels) {
       const kids = Array.from(group.children);
       for (const k of kids) {
@@ -784,7 +733,6 @@
       });
     }
 
-    // ═══════════ TOOLBAR ACTIONS ═══════════
     function setTransformMode(mode) {
       editor.transformMode = mode;
       if (!gizmoManager) return;
@@ -843,7 +791,6 @@
       setStatus('● Snap Object: ' + (editor.snapObject ? 'ON' : 'OFF'), true);
     }
 
-    // ═══════════ ADD OBJECT ═══════════
     function addObject(geometry) {
       const name = geometry.charAt(0).toUpperCase() + geometry.slice(1);
       vscode.postMessage({
@@ -865,7 +812,6 @@
       setStatus('● Added ' + name, true);
     }
 
-    // ═══════════ GIZMO ═══════════
     function setupGizmo() {
       gizmoManager = new BABYLON.GizmoManager(scene);
       gizmoManager.usePointerToAttachGizmos = false;
@@ -884,22 +830,23 @@
       if (gizmoManager.gizmos.scaleGizmo) gizmoManager.gizmos.scaleGizmo.scaleRatio = ratio;
     }
 
-    // ─── Gizmo → Scene sync ───
     function setupGizmoSync() {
-      const postTransform = (mesh) => {
+      const postTransform = (attached) => {
         if (suppressGizmoSync) return;
-        const nodeId = meshToNodeId.get(mesh);
+        const nodeId = meshToNodeId.get(attached) || rootToNodeId.get(attached);
         if (!nodeId) return;
-        const q = mesh.rotationQuaternion || BABYLON.Quaternion.FromEulerVector(mesh.rotation);
+        const worldPos = attached.getAbsolutePosition();
+        const worldScale = attached.absoluteScaling || attached.scaling;
+        const q = attached.rotationQuaternion || BABYLON.Quaternion.FromEulerVector(attached.rotation);
         vscode.postMessage({
           type: 'update:transform',
           nodeId,
           transform: {
-            position: { x: mesh.position.x, y: mesh.position.y, z: mesh.position.z },
+            position: { x: worldPos.x, y: worldPos.y, z: worldPos.z },
             rotation: { x: q.x, y: q.y, z: q.z, w: q.w },
-            scale: { x: mesh.scaling.x, y: mesh.scaling.y, z: mesh.scaling.z },
+            scale: { x: worldScale.x, y: worldScale.y, z: worldScale.z },
           },
-          live: true,   // ⭐ live
+          live: true,
         });
       };
 
@@ -907,25 +854,23 @@
         const gizmo = gizmoManager.gizmos[gizmoName];
         if (!gizmo) return;
 
-        // ─── ⭐ live: هر فریم موقع drag ───
         let dragThrottle = null;
         gizmo.onDragObservable.add(() => {
           if (dragThrottle) return;
           dragThrottle = setTimeout(() => {
             dragThrottle = null;
-            const mesh = gizmoManager.attachedMesh;
-            if (mesh) postTransform(mesh);
+            const target = gizmo.attachedNode || gizmoManager.attachedMesh;
+            if (target) postTransform(target);
           }, 16);
         });
 
-        // ─── پایان drag: flush فوری ───
         gizmo.onDragEndObservable.add(() => {
           if (dragThrottle) {
             clearTimeout(dragThrottle);
             dragThrottle = null;
           }
-          const mesh = gizmoManager.attachedMesh;
-          if (mesh) postTransform(mesh);
+          const target = gizmo.attachedNode || gizmoManager.attachedMesh;
+          if (target) postTransform(target);
         });
       };
 
@@ -936,19 +881,65 @@
 
     function attachGizmoTo(nodeId) {
       if (!gizmoManager) return;
-      const mesh = nodeIdToMesh.get(nodeId);
-      if (mesh && mesh.getClassName && mesh.getClassName().includes('Mesh')) {
-        gizmoManager.attachToMesh(mesh);
-      } else {
+      const target = nodeIdToRoot.get(nodeId) || nodeIdToMesh.get(nodeId);
+      if (!target) {
         gizmoManager.attachToMesh(null);
+        return;
+      }
+
+      if (target.getClassName && target.getClassName() === 'TransformNode') {
+        if (gizmoManager.gizmos.positionGizmo) gizmoManager.gizmos.positionGizmo.attachedNode = target;
+        if (gizmoManager.gizmos.rotationGizmo) gizmoManager.gizmos.rotationGizmo.attachedNode = target;
+        if (gizmoManager.gizmos.scaleGizmo) gizmoManager.gizmos.scaleGizmo.attachedNode = target;
+      } else {
+        gizmoManager.attachToMesh(target);
       }
     }
 
     function detachGizmo() {
-      if (gizmoManager) gizmoManager.attachToMesh(null);
+      if (!gizmoManager) return;
+      gizmoManager.attachToMesh(null);
+      if (gizmoManager.gizmos.positionGizmo) gizmoManager.gizmos.positionGizmo.attachedNode = null;
+      if (gizmoManager.gizmos.rotationGizmo) gizmoManager.gizmos.rotationGizmo.attachedNode = null;
+      if (gizmoManager.gizmos.scaleGizmo) gizmoManager.gizmos.scaleGizmo.attachedNode = null;
     }
 
-    // ═══════════ ROTATION ═══════════
+    function applyTransformFromInspector(payload) {
+      if (!payload) return;
+      const { nodeId, transform } = payload;
+
+      const root = nodeIdToRoot.get(nodeId);
+      const pickable = nodeIdToMesh.get(nodeId);
+      if (!root && !pickable) return;
+
+      suppressGizmoSync = true;
+      try {
+        if (root) {
+          if (transform.position) {
+            root.position.set(transform.position.x, transform.position.y, transform.position.z);
+          }
+          if (transform.rotation) {
+            root.rotationQuaternion = new BABYLON.Quaternion(
+              transform.rotation.x,
+              transform.rotation.y,
+              transform.rotation.z,
+              transform.rotation.w,
+            );
+          }
+          if (transform.scale) {
+            root.scaling.set(transform.scale.x, transform.scale.y, transform.scale.z);
+          }
+        }
+
+        if (pickable && pickable !== root) {
+          pickable.position.set(0, 0, 0);
+          pickable.rotationQuaternion = BABYLON.Quaternion.Identity();
+        }
+      } finally {
+        setTimeout(() => { suppressGizmoSync = false; }, 0);
+      }
+    }
+
     function applyRotation() {
       const cp = Math.cos(camState.pitch);
       const dir = new BABYLON.Vector3(
@@ -966,11 +957,9 @@
       applyRotation();
     }
 
-    // ═══════════ INPUT ═══════════
     function setupInput() {
       document.addEventListener('contextmenu', (e) => e.preventDefault(), { capture: true });
 
-      // ─── Wheel: توی Look Mode = سرعت ───
       canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
         camState.baseSpeed *= e.deltaY > 0 ? 0.9 : 1.1;
@@ -978,19 +967,16 @@
         setStatus('● Speed: ' + camState.baseSpeed.toFixed(2), true);
       }, { passive: false });
 
-      // ─── LMB: فوکوس ───
       canvas.addEventListener('mousedown', (e) => {
         if (e.button === 0 && !lookMode) canvas.focus();
       });
 
-      // ─── موس: توی Look Mode با Pointer Lock ───
       document.addEventListener('mousemove', (e) => {
         if (!lookMode) return;
         if (!pointerLocked) return;
         rotate(e.movementX, e.movementY);
       });
 
-      // ─── fallback ───
       let fallbackX = 0, fallbackY = 0;
       window.addEventListener('mousemove', (e) => {
         if (!lookMode) return;
@@ -1002,23 +988,19 @@
         rotate(dx, dy);
       });
 
-      // ─── Look Mode button ───
       lookModeBtn.addEventListener('click', () => {
         toggleLookMode();
       });
 
-      // ─── کلیک روی canvas توی Look Mode: فقط فوکوس ───
       canvas.addEventListener('mousedown', (e) => {
         if (lookMode) e.preventDefault();
       }, { capture: true });
 
-      // ─── کیبورد ───
       window.addEventListener('keydown', (e) => {
         if (e.target && e.target.tagName === 'INPUT') return;
 
         const code = e.code;
 
-        // F: toggle look mode — همیشه فعال
         if (code === 'KeyF') {
           e.preventDefault();
           e.stopPropagation();
@@ -1026,7 +1008,6 @@
           return;
         }
 
-        // Delete / Backspace: حذف انتخاب‌شده‌ها — همیشه فعال
         if (code === 'Delete' || code === 'Backspace') {
           if (selectedIds.length > 0) {
             e.preventDefault();
@@ -1038,14 +1019,12 @@
           return;
         }
 
-        // Esc: خروج از look یا deselect
         if (code === 'Escape') {
           if (lookMode) exitLookMode();
           else vscode.postMessage({ type: 'select', ids: [] });
           return;
         }
 
-        // Ctrl/Cmd + D: Duplicate
         if ((e.ctrlKey || e.metaKey) && code === 'KeyD') {
           if (selectedIds.length > 0) {
             e.preventDefault();
@@ -1057,7 +1036,6 @@
           return;
         }
 
-        // ─── از اینجا به بعد فقط توی Look Mode ───
         if (!lookMode) return;
 
         const handled =
@@ -1082,12 +1060,10 @@
       window.addEventListener('keyup', (e) => {
         const code = e.code;
 
-        // همیشه از keys حذف کن
         keys.delete(code);
         if (code === 'ShiftLeft' || code === 'ShiftRight') shiftHeld = false;
         if (code === 'Space') spaceHeld = false;
 
-        // فقط توی Look Mode جلوی default رو بگیر
         if (!lookMode) return;
 
         if (
@@ -1110,12 +1086,9 @@
       });
     }
 
-    // ═══════════ UPDATE CAMERA ═══════════
     function updateCamera(dt) {
-      // ─── حرکت فقط توی Look Mode ───
       if (!lookMode) return;
 
-      // ─── چرخش با IJKL/فلش‌ها ───
       const lookMult = shiftHeld ? camState.sprintMult : (spaceHeld ? camState.slowMult : 1);
       const lookStep = camState.baseLookSpeed * lookMult * dt;
 
@@ -1132,7 +1105,6 @@
 
       if (keys.size === 0) return;
 
-      // ─── حرکت با WASD ───
       const moveMult = shiftHeld ? camState.sprintMult : (spaceHeld ? camState.slowMult : 1);
       const speed = camState.baseSpeed * moveMult * dt * 60;
 
@@ -1153,10 +1125,9 @@
       }
     }
 
-    // ═══════════ SNAP ═══════════
     function applySnap() {
-      const mesh = selectedIds[0] ? nodeIdToMesh.get(selectedIds[0]) : null;
-      if (!mesh || !mesh.getClassName || !mesh.getClassName().includes('Mesh')) return;
+      const mesh = selectedIds[0] ? (nodeIdToRoot.get(selectedIds[0]) || nodeIdToMesh.get(selectedIds[0])) : null;
+      if (!mesh) return;
 
       const gizmoActive = gizmoManager && (
         gizmoManager.gizmos.positionGizmo?.isHovered ||
@@ -1190,77 +1161,91 @@
       }
     }
 
-    // ═══════════ BUILD SCENE ═══════════
-    function buildNode(nodeData, parent) {
+    function buildNode(nodeData, parentRoot) {
       const mc = (nodeData.components || []).find(c => c.type === 'mesh');
       const lc = (nodeData.components || []).find(c => c.type === 'light');
       const cc = (nodeData.components || []).find(c => c.type === 'camera');
 
-      let node = null, pickable = null;
+      const root = new BABYLON.TransformNode(nodeData.id + '__root', scene);
 
+      let pickable = null;
       if (mc) {
         switch (mc.geometry) {
-          case 'box': node = BABYLON.MeshBuilder.CreateBox(nodeData.id, { size: 1 }, scene); break;
-          case 'sphere': node = BABYLON.MeshBuilder.CreateSphere(nodeData.id, { diameter: 1 }, scene); break;
-          case 'plane': node = BABYLON.MeshBuilder.CreatePlane(nodeData.id, { size: 1 }, scene); break;
-          case 'cylinder': node = BABYLON.MeshBuilder.CreateCylinder(nodeData.id, { height: 1, diameter: 1 }, scene); break;
-          case 'torus': node = BABYLON.MeshBuilder.CreateTorus(nodeData.id, { diameter: 1, thickness: 0.3 }, scene); break;
-          default: node = BABYLON.MeshBuilder.CreateBox(nodeData.id, { size: 1 }, scene);
+          case 'box': pickable = BABYLON.MeshBuilder.CreateBox(nodeData.id, { size: 1 }, scene); break;
+          case 'sphere': pickable = BABYLON.MeshBuilder.CreateSphere(nodeData.id, { diameter: 1 }, scene); break;
+          case 'plane': pickable = BABYLON.MeshBuilder.CreatePlane(nodeData.id, { size: 1 }, scene); break;
+          case 'cylinder': pickable = BABYLON.MeshBuilder.CreateCylinder(nodeData.id, { height: 1, diameter: 1 }, scene); break;
+          case 'torus': pickable = BABYLON.MeshBuilder.CreateTorus(nodeData.id, { diameter: 1, thickness: 0.3 }, scene); break;
+          default: pickable = BABYLON.MeshBuilder.CreateBox(nodeData.id, { size: 1 }, scene);
         }
         const m = new BABYLON.StandardMaterial(nodeData.id + '_m', scene);
         try { m.diffuseColor = BABYLON.Color3.FromHexString(mc.material.color); }
         catch { m.diffuseColor = new BABYLON.Color3(0.42, 0.27, 0.76); }
         m.emissiveColor = m.diffuseColor.scale(0.15);
-        node.material = m;
-        pickable = node;
+        pickable.material = m;
       } else if (lc) {
-        node = new BABYLON.TransformNode(nodeData.id, scene);
         pickable = BABYLON.MeshBuilder.CreateSphere(nodeData.id + '_g', { diameter: 0.35 }, scene);
         const gm = new BABYLON.StandardMaterial(nodeData.id + '_gm', scene);
         gm.emissiveColor = new BABYLON.Color3(1, 0.9, 0.4);
         gm.disableLighting = true;
         pickable.material = gm;
-        pickable.parent = node;
       } else if (cc) {
-        node = new BABYLON.TransformNode(nodeData.id, scene);
         pickable = BABYLON.MeshBuilder.CreateBox(nodeData.id + '_g', { size: 0.5 }, scene);
         const gm = new BABYLON.StandardMaterial(nodeData.id + '_gm', scene);
         gm.wireframe = true;
         gm.emissiveColor = new BABYLON.Color3(0.5, 0.8, 1);
         gm.disableLighting = true;
         pickable.material = gm;
-        pickable.parent = node;
-      } else {
-        node = new BABYLON.TransformNode(nodeData.id, scene);
+      }
+
+      if (pickable) {
+        pickable.parent = root;
+        pickable.position.set(0, 0, 0);
+        pickable.rotationQuaternion = BABYLON.Quaternion.Identity();
+        pickable.scaling.set(1, 1, 1);
       }
 
       if (pickable) {
         meshToNodeId.set(pickable, nodeData.id);
         nodeIdToMesh.set(nodeData.id, pickable);
-      } else if (node) {
-        nodeIdToMesh.set(nodeData.id, node);
       }
+      nodeIdToRoot.set(nodeData.id, root);
+      rootToNodeId.set(root, nodeData.id);
 
       const t = nodeData.transform;
-      if (t && node) {
-        node.position.set(t.position.x, t.position.y, t.position.z);
-        node.rotationQuaternion = new BABYLON.Quaternion(t.rotation.x, t.rotation.y, t.rotation.z, t.rotation.w);
-        node.scaling.set(t.scale.x, t.scale.y, t.scale.z);
+      if (t) {
+        root.position.set(t.position.x, t.position.y, t.position.z);
+        root.rotationQuaternion = new BABYLON.Quaternion(t.rotation.x, t.rotation.y, t.rotation.z, t.rotation.w);
+        root.scaling.set(t.scale.x, t.scale.y, t.scale.z);
       }
 
-      if (parent && node) node.parent = parent;
-      for (const child of nodeData.children ?? []) buildNode(child, node);
+      if (parentRoot) {
+        root.parent = parentRoot;
+      }
+
+      for (const child of nodeData.children ?? []) {
+        buildNode(child, root);
+      }
     }
 
     function rebuildScene(data) {
       detachGizmo();
-      for (const [, obj] of nodeIdToMesh) { try { obj.dispose(); } catch { } }
+
+      for (const [id, obj] of nodeIdToMesh) {
+        try { obj.dispose(); } catch (e) { console.warn('[Weaver] dispose mesh failed', id, e); }
+      }
+      for (const [id, obj] of nodeIdToRoot) {
+        try { obj.dispose(); } catch (e) { console.warn('[Weaver] dispose root failed', id, e); }
+      }
       nodeIdToMesh.clear();
+      nodeIdToRoot.clear();
+      rootToNodeId.clear();
+
       for (const child of data.root.children ?? []) buildNode(child, null);
+
       applySelection(selectedIds);
     }
 
-    // ═══════════ HIGHLIGHT ═══════════
     function applySelection(ids) {
       selectedIds = ids || [];
       if (!highlightLayer) return;
@@ -1285,7 +1270,6 @@
       }
     }
 
-    // ═══════════ PICKING ═══════════
     function setupPicking() {
       scene.onPointerObservable.add((pi) => {
         if (pi.type !== BABYLON.PointerEventTypes.POINTERMOVE) return;
@@ -1316,7 +1300,6 @@
         const picked = pi.pickInfo?.pickedMesh;
         const nodeId = picked ? meshToNodeId.get(picked) : null;
 
-        // ─── Multi-selection با Ctrl/Shift ───
         if (pi.event.ctrlKey || pi.event.metaKey || pi.event.shiftKey) {
           if (nodeId) {
             const current = new Set(selectedIds);

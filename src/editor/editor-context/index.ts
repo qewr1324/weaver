@@ -8,16 +8,14 @@ import { CommandStack } from "../command-stack";
 import type { SceneDocument } from "../scene-document";
 import { Selection } from "../selection";
 
-/** snapshot ترنسفورم برای sync بین inspector و viewport */
-export interface TransformSyncPayload {
-	nodeId: string;
-	transform: {
-		position: { x: number; y: number; z: number };
-		rotation: { x: number; y: number; z: number; w: number };
-		scale: { x: number; y: number; z: number };
-	};
-	/** منبع تغییر — تا viewport از echo خودش صرف‌نظر کنه */
-	source: "viewport" | "inspector" | "command" | "file";
+export type TransformChannel = "position" | "rotation" | "scale";
+export type TransformAxis = "x" | "y" | "z" | "w";
+export type TransformSource = "viewport" | "inspector" | "undo" | "load";
+
+export interface TransformSnapshot {
+	position: { x: number; y: number; z: number };
+	rotation: { x: number; y: number; z: number; w: number };
+	scale: { x: number; y: number; z: number };
 }
 
 export class EditorContext extends Disposable {
@@ -32,8 +30,6 @@ export class EditorContext extends Disposable {
 		"scene:loaded": Scene;
 		"scene:mutated": void;
 		"dirty:changed": boolean;
-		// ─── پل بین inspector و viewport ───
-		"transform:changed": TransformSyncPayload;
 		"rename:changed": { nodeId: string; name: string };
 	}>();
 
@@ -96,20 +92,42 @@ export class EditorContext extends Disposable {
 		this.bus.emit("dirty:changed", value);
 	}
 
-	/**
-	 * helper: از هر جایی که transform رو عوض کردی، این رو صدا بزن
-	 * تا inspector و viewport هم‌زمان sync شن.
-	 */
-	notifyTransformChanged(node: Node, source: TransformSyncPayload["source"]): void {
-		this.bus.emit("transform:changed", {
+	setNodeTransform(node: Node, snapshot: TransformSnapshot, source: TransformSource): void {
+		node.transform.position = { ...snapshot.position };
+		node.transform.rotation = { ...snapshot.rotation };
+		node.transform.scale = { ...snapshot.scale };
+
+		this.scene.bus.emit("transform:changed", {
 			nodeId: node.id,
 			transform: {
-				position: { ...node.transform.position },
-				rotation: { ...node.transform.rotation },
-				scale: { ...node.transform.scale },
+				position: { ...snapshot.position },
+				rotation: { ...snapshot.rotation },
+				scale: { ...snapshot.scale },
 			},
 			source,
 		});
+
+		if (source !== "load") {
+			this.scene.bus.emit("scene:changed", undefined);
+		}
+	}
+
+	setNodeTransformAxis(node: Node, channel: TransformChannel, axis: TransformAxis, value: number, source: TransformSource): void {
+		const snapshot: TransformSnapshot = {
+			position: { ...node.transform.position },
+			rotation: { ...node.transform.rotation },
+			scale: { ...node.transform.scale },
+		};
+		(snapshot[channel] as any)[axis] = value;
+		this.setNodeTransform(node, snapshot, source);
+	}
+
+	getNodeTransform(node: Node): TransformSnapshot {
+		return {
+			position: { ...node.transform.position },
+			rotation: { ...node.transform.rotation },
+			scale: { ...node.transform.scale },
+		};
 	}
 
 	notifyRenamed(node: Node): void {
